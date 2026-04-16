@@ -1,12 +1,14 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Dienst ist bereits konfiguriert"
+      "already_configured": "Dienst ist bereits konfiguriert",
+      "reconfigure_successful": "Neue Konfiguration gespeichert."
     },
     "error": {
       "zone_not_found": "Die ausgewählte Zone ist nicht verfügbar.",
       "zone_missing_coordinates": "Die ausgewählte Zone hat keine gültigen Koordinaten.",
-      "out_of_range": "Dieser Standort liegt außerhalb des Abdeckungsbereichs des gewählten GeoSphere-Datasets."
+      "out_of_range": "Dieser Standort liegt außerhalb des Abdeckungsbereichs des gewählten GeoSphere-Datasets.",
+      "cannot_connect": "Verbindung zur GeoSphere-Data-Hub-API fehlgeschlagen."
     },
     "step": {
       "user": {
@@ -15,6 +17,13 @@
           "dataset": "Dataset"
         },
         "description": "Wähle eine Home-Assistant-Zone (deren Länge/Breite werden an die GeoSphere-API übergeben) und das gewünschte GeoSphere-Dataset. Wetter-Datasets erzeugen eine Wetter-Entity; das Luftqualitäts-Dataset erzeugt Sensor-Entities (NO₂, O₃, PM10, PM2.5).\n\nDataset-Dokumentation:\n{doc_links}"
+      },
+      "reconfigure": {
+        "data": {
+          "zone": "Zone",
+          "dataset": "Dataset"
+        },
+        "description": "Ändere Zone und/oder Dataset dieser GeoSphere-Integration. Beim Wechsel zwischen Wetter- und Luftqualitäts-Datasets werden die bestehenden Entities ersetzt.\n\nDataset-Dokumentation:\n{doc_links}"
       }
     }
   },
@@ -42,6 +51,17 @@
       "pm25": {
         "name": "Feinstaub PM2,5"
       }
+    }
+  },
+  "exceptions": {
+    "api_http_error": {
+      "message": "GeoSphere-API antwortete mit HTTP {status}: {reason}"
+    },
+    "api_communication_error": {
+      "message": "Fehler bei der Kommunikation mit der GeoSphere-API: {error}"
+    },
+    "api_unexpected_response": {
+      "message": "Unerwartete Antwort der GeoSphere-API: {error}"
     }
   }
 }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from homeassistant.const import ATTR_LATITUDE, ATTR_LONGITUDE, CONF_ZONE
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 
 from .const import (
     CONF_DATASET,
@@ -20,7 +20,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GeoSphereConfigEntry) ->
     zone_id = entry.data[CONF_ZONE]
     dataset = entry.data.get(CONF_DATASET, DEFAULT_DATASET)
     if dataset not in SUPPORTED_DATASETS:
-        raise ConfigEntryNotReady(f"Unsupported GeoSphere dataset: {dataset}")
+        raise ConfigEntryError(f"Unsupported GeoSphere dataset: {dataset}")
 
     zone_state = hass.states.get(zone_id)
     if zone_state is None:

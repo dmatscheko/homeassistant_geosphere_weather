@@ -1,0 +1,51 @@
+[project]
+name = "homeassistant-geosphere-weather"
+version = "0.1.0"
+description = "Home Assistant custom integration for GeoSphere Austria weather"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "homeassistant>=2024.12.0",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "pytest-homeassistant-custom-component>=0.13.200",
+  "mypy>=1.11",
+  "ruff>=0.6",
+  "voluptuous>=0.15",
+]
+
+[tool.uv]
+package = false
+prerelease = "allow"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra -q"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP", "PL", "RUF"]
+ignore = ["PLR0911", "PLR0913", "PLR0912", "PLR0915", "PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "PLR0915", "PLC0415"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+packages = ["custom_components.geosphere_weather"]
+mypy_path = "."
+exclude = ["tests/"]
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+# Home Assistant's public modules rely on implicit re-exports (e.g.
+# ``from homeassistant.components.weather import WeatherEntityFeature``).
+# Keep the rest of strict mode while allowing those idiomatic imports.
+implicit_reexport = true

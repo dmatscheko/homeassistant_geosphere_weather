@@ -1,13 +1,14 @@
 {
   "domain": "geosphere_weather",
   "name": "GeoSphere Austria Weather",
-  "codeowners": [],
+  "codeowners": ["@dmatscheko"],
   "config_flow": true,
   "dependencies": ["zone"],
-  "documentation": "https://github.com/dma/homeassistant_geosphere_weather",
+  "documentation": "https://github.com/dmatscheko/homeassistant_geosphere_weather",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/dma/homeassistant_geosphere_weather/issues",
+  "issue_tracker": "https://github.com/dmatscheko/homeassistant_geosphere_weather/issues",
+  "quality_scale": "bronze",
   "requirements": [],
   "version": "0.1.0"
 }

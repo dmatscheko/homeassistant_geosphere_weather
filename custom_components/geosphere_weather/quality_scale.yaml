@@ -1,0 +1,92 @@
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: Integration does not register actions.
+  appropriate-polling: done
+  brands:
+    status: exempt
+    comment: Custom integration distributed via HACS; not in the HA brands repo.
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency: done
+  docs-actions:
+    status: exempt
+    comment: Integration does not register actions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-event-setup:
+    status: exempt
+    comment: Entities do not subscribe to device events.
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions:
+    status: exempt
+    comment: Integration does not register actions.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow:
+    status: exempt
+    comment: GeoSphere Data Hub API does not require authentication.
+  test-coverage: done
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery-update-info:
+    status: exempt
+    comment: Location is chosen via a HA zone; there is no network discovery.
+  discovery:
+    status: exempt
+    comment: Cloud polling API; no local discovery.
+  docs-data-update: done
+  docs-examples: todo
+  docs-known-limitations: done
+  docs-supported-devices:
+    status: exempt
+    comment: Integration talks to a public API, not hardware.
+  docs-supported-functions: done
+  docs-troubleshooting: todo
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: A config entry maps to exactly one dataset/zone combination.
+  entity-category:
+    status: exempt
+    comment: All entities represent primary measurements.
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: exempt
+    comment: No noisy or optional entities.
+  entity-translations: done
+  exception-translations: done
+  icon-translations:
+    status: exempt
+    comment: Entities use HA default icons via device classes.
+  reconfiguration-flow: done
+  repair-issues:
+    status: exempt
+    comment: No recoverable state requiring repair flows.
+  stale-devices:
+    status: exempt
+    comment: Devices are 1:1 with config entries; they disappear on removal.
+
+  # Platinum
+  async-dependency: done
+  inject-websession: done
+  strict-typing: done

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-import math
 from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientTimeout
-
 from homeassistant.components.weather import (
     ATTR_CONDITION_CLOUDY,
     ATTR_CONDITION_FOG,
@@ -179,15 +178,28 @@ class GeoSphereDataUpdateCoordinator(DataUpdateCoordinator[GeoSphereBundle]):
                 payload = await response.json()
         except ClientResponseError as err:
             raise UpdateFailed(
-                f"GeoSphere API returned HTTP {err.status}: {err.message}"
+                translation_domain=DOMAIN,
+                translation_key="api_http_error",
+                translation_placeholders={
+                    "status": str(err.status),
+                    "reason": err.message or "",
+                },
             ) from err
         except ClientError as err:
-            raise UpdateFailed(f"Error communicating with GeoSphere API: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="api_communication_error",
+                translation_placeholders={"error": str(err)},
+            ) from err
         parser = _PARSERS[self._dataset]
         try:
             return parser(payload)
         except (KeyError, IndexError, ValueError, TypeError) as err:
-            raise UpdateFailed(f"Unexpected GeoSphere API response: {err}") from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="api_unexpected_response",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
 
 # ---------------------------------------------------------------------------
@@ -489,8 +501,10 @@ def _parse_nwp(payload: dict[str, Any]) -> WeatherBundle:
         precipitation = _precip_delta(rr_acc, idx, raw.timestamps, raw.reference_time)
         wind_speed, wind_bearing = _wind_from_components(u10m[idx], v10m[idx])
         gust_speed, _ = _wind_from_components(ugust[idx], vgust[idx])
-        cloud_pct = tcc[idx] * 100.0 if tcc[idx] is not None else None
-        sy_code = int(sy[idx]) if sy[idx] is not None else None
+        tcc_val = tcc[idx]
+        cloud_pct = tcc_val * 100.0 if tcc_val is not None else None
+        sy_val = sy[idx]
+        sy_code = int(sy_val) if sy_val is not None else None
         condition = _SY_TO_CONDITION.get(sy_code) if sy_code is not None else None
         if condition is None:
             condition = _derive_condition(
@@ -562,7 +576,8 @@ def _parse_ensemble(payload: dict[str, Any]) -> WeatherBundle:
         p90 = _precip_delta(rr_p90, idx, raw.timestamps, raw.reference_time)
         precip_prob = _precip_probability(p10, precipitation, p90)
         wind_speed, wind_bearing = _wind_from_components(u10m[idx], v10m[idx])
-        cloud_pct = tcc[idx] * 100.0 if tcc[idx] is not None else None
+        tcc_val = tcc[idx]
+        cloud_pct = tcc_val * 100.0 if tcc_val is not None else None
         condition = _derive_condition(
             cloud_pct=cloud_pct,
             precipitation=precipitation,
@@ -623,7 +638,8 @@ def _parse_nowcast(payload: dict[str, Any]) -> WeatherBundle:
     hourly: list[HourlyPoint] = []
     for idx, ts in enumerate(raw.timestamps):
         precipitation = rr[idx]
-        pt_code = int(pt[idx]) if pt[idx] is not None else None
+        pt_val = pt[idx]
+        pt_code = int(pt_val) if pt_val is not None else None
         condition = _condition_from_pt(pt_code, precipitation)
         if condition is None:
             condition = _derive_condition(
@@ -726,26 +742,22 @@ def _aggregate_daily(
     daily: list[DailyPoint] = []
     for day in sorted(buckets):
         indices = buckets[day]
-        temps = [
-            hourly[i].temperature for i in indices if hourly[i].temperature is not None
+        temps: list[float] = [
+            t for i in indices if (t := hourly[i].temperature) is not None
         ]
-        mn_values = [mnt2m[i] for i in indices if mnt2m[i] is not None]
-        mx_values = [mxt2m[i] for i in indices if mxt2m[i] is not None]
-        precip_values = [
-            hourly[i].precipitation
-            for i in indices
-            if hourly[i].precipitation is not None
+        mn_values: list[float] = [v for i in indices if (v := mnt2m[i]) is not None]
+        mx_values: list[float] = [v for i in indices if (v := mxt2m[i]) is not None]
+        precip_values: list[float] = [
+            p for i in indices if (p := hourly[i].precipitation) is not None
         ]
-        precip_probs = [
-            hourly[i].precipitation_probability
-            for i in indices
-            if hourly[i].precipitation_probability is not None
+        precip_probs: list[float] = [
+            p for i in indices if (p := hourly[i].precipitation_probability) is not None
         ]
-        wind_values = [
-            (i, hourly[i].wind_speed)
-            for i in indices
-            if hourly[i].wind_speed is not None
+        wind_values: list[tuple[int, float]] = [
+            (i, s) for i in indices if (s := hourly[i].wind_speed) is not None
         ]
+        max_speed: float | None
+        wind_bearing: float | None
         if wind_values:
             max_i, max_speed = max(wind_values, key=lambda pair: pair[1])
             wind_bearing = hourly[max_i].wind_bearing

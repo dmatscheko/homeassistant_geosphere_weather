@@ -30,6 +30,8 @@ from .coordinator import (
     GeoSphereDataUpdateCoordinator,
 )
 
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class GeoSphereSensorDescription(SensorEntityDescription):
@@ -130,7 +132,7 @@ class GeoSphereAirQualitySensor(
         return self.entity_description.value_fn(bundle)
 
     @property
-    def extra_state_attributes(self) -> dict[str, str] | None:
+    def extra_state_attributes(self) -> dict[str, float | str] | None:
         """Expose the model reference time and location metadata."""
         bundle = self.coordinator.data
         if not isinstance(bundle, AirQualityBundle):
@@ -138,6 +140,6 @@ class GeoSphereAirQualitySensor(
         return {
             "dataset": self.coordinator.dataset,
             "reference_time": bundle.reference_time.isoformat(),
-            "latitude": str(self.coordinator.latitude),
-            "longitude": str(self.coordinator.longitude),
+            "latitude": self.coordinator.latitude,
+            "longitude": self.coordinator.longitude,
         }

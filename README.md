@@ -32,10 +32,55 @@ and the surrounding Alpine region, based on the open
 
 ## Installation
 
+### HACS (recommended)
+
+1. In HACS, open *Integrations* → menu → *Custom repositories*, add
+   `https://github.com/dmatscheko/homeassistant_geosphere_weather` with category
+   *Integration*.
+2. Install *GeoSphere Austria Weather* and restart Home Assistant.
+3. *Settings → Devices & Services → Add Integration* → search for
+   "GeoSphere Austria Weather".
+
+### Manual
+
 Copy `custom_components/geosphere_weather/` into your Home Assistant
 configuration directory (`config/custom_components/geosphere_weather/`) and
 restart Home Assistant. Then add the integration from
 *Settings → Devices & Services → Add Integration → "GeoSphere Austria Weather"*.
+
+## Removal
+
+*Settings → Devices & Services*, open the GeoSphere Austria entry and choose
+*Delete*. If installed via HACS, uninstall through HACS and restart Home
+Assistant; if installed manually, delete `custom_components/geosphere_weather/`
+and restart.
+
+## Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for Python environment and
+dependency management. Install uv with:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Sync the dev environment once:
+
+```bash
+uv sync --group dev
+```
+
+Then run the quality gates exactly as CI does — all commands run inside the
+uv-managed virtualenv, no manual activation needed:
+
+```bash
+uv run ruff check custom_components tests
+uv run mypy --strict custom_components/geosphere_weather
+uv run pytest
+```
+
+CI on GitHub Actions runs the same three commands on every push and pull
+request via [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Attribution & license
 
@@ -66,4 +111,4 @@ integration.
   produces `sensor.<title>_nitrogen_dioxide`, `…_ozone`, `…_particulate_matter_pm10`,
   `…_particulate_matter_pm2_5` entities instead of a `weather.<title>` entity.
 
-/dma
+/dmatscheko

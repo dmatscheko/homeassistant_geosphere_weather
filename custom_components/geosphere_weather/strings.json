@@ -1,12 +1,14 @@
 {
   "config": {
     "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_service%]"
+      "already_configured": "[%key:common::config_flow::abort::already_configured_service%]",
+      "reconfigure_successful": "Reconfiguration saved."
     },
     "error": {
       "zone_not_found": "The selected zone is not available.",
       "zone_missing_coordinates": "The selected zone does not have latitude/longitude attributes.",
-      "out_of_range": "This location is outside the coverage of the selected GeoSphere dataset."
+      "out_of_range": "This location is outside the coverage of the selected GeoSphere dataset.",
+      "cannot_connect": "Failed to connect to the GeoSphere Data Hub API."
     },
     "step": {
       "user": {
@@ -15,6 +17,13 @@
           "dataset": "Dataset"
         },
         "description": "Select a Home Assistant zone — its latitude and longitude are forwarded to the GeoSphere API — and pick which GeoSphere dataset to use. Weather datasets create a weather entity; the air-quality dataset creates sensor entities (NO₂, O₃, PM10, PM2.5).\n\nDataset documentation:\n{doc_links}"
+      },
+      "reconfigure": {
+        "data": {
+          "zone": "Zone",
+          "dataset": "Dataset"
+        },
+        "description": "Change the zone and/or dataset for this GeoSphere integration. Switching datasets may replace the weather entity with sensor entities (or vice versa).\n\nDataset documentation:\n{doc_links}"
       }
     }
   },
@@ -42,6 +51,17 @@
       "pm25": {
         "name": "Particulate matter PM2.5"
       }
+    }
+  },
+  "exceptions": {
+    "api_http_error": {
+      "message": "GeoSphere API returned HTTP {status}: {reason}"
+    },
+    "api_communication_error": {
+      "message": "Error communicating with the GeoSphere API: {error}"
+    },
+    "api_unexpected_response": {
+      "message": "Unexpected GeoSphere API response: {error}"
     }
   }
 }

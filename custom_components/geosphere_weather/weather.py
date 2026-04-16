@@ -18,8 +18,8 @@ from homeassistant.components.weather import (
     ATTR_FORECAST_WIND_BEARING,
     Forecast,
     SingleCoordinatorWeatherEntity,
-    WeatherEntityFeature,
 )
+from homeassistant.components.weather.const import WeatherEntityFeature
 from homeassistant.const import (
     UnitOfPrecipitationDepth,
     UnitOfPressure,
@@ -39,7 +39,13 @@ from .const import (
     DOMAIN,
     MANUFACTURER,
 )
-from .coordinator import GeoSphereConfigEntry, GeoSphereDataUpdateCoordinator
+from .coordinator import (
+    GeoSphereConfigEntry,
+    GeoSphereDataUpdateCoordinator,
+    WeatherBundle,
+)
+
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -95,55 +101,66 @@ class GeoSphereWeatherEntity(
         )
 
     @property
+    def _bundle(self) -> WeatherBundle:
+        """Return the coordinator data narrowed to WeatherBundle.
+
+        The weather platform is only instantiated for weather datasets, so the
+        bundle is guaranteed to be a WeatherBundle at runtime.
+        """
+        data = self.coordinator.data
+        assert isinstance(data, WeatherBundle)
+        return data
+
+    @property
     def condition(self) -> str | None:
         """Return the current weather condition."""
-        return self.coordinator.data.current.condition
+        return self._bundle.current.condition
 
     @property
     def native_temperature(self) -> float | None:
         """Return the current temperature."""
-        return self.coordinator.data.current.temperature
+        return self._bundle.current.temperature
 
     @property
     def humidity(self) -> float | None:
         """Return the current relative humidity."""
-        return self.coordinator.data.current.humidity
+        return self._bundle.current.humidity
 
     @property
     def native_dew_point(self) -> float | None:
         """Return the current dew point (nowcast only)."""
-        return self.coordinator.data.current.dew_point
+        return self._bundle.current.dew_point
 
     @property
     def native_pressure(self) -> float | None:
         """Return the current surface pressure in hPa."""
-        return self.coordinator.data.current.pressure
+        return self._bundle.current.pressure
 
     @property
     def cloud_coverage(self) -> float | None:
         """Return the current cloud coverage in percent."""
-        return self.coordinator.data.current.cloud_cover
+        return self._bundle.current.cloud_cover
 
     @property
     def native_wind_speed(self) -> float | None:
         """Return the current wind speed."""
-        return self.coordinator.data.current.wind_speed
+        return self._bundle.current.wind_speed
 
     @property
     def native_wind_gust_speed(self) -> float | None:
         """Return the current wind gust speed."""
-        return self.coordinator.data.current.wind_gust
+        return self._bundle.current.wind_gust
 
     @property
     def wind_bearing(self) -> float | None:
         """Return the current wind bearing (meteorological)."""
-        return self.coordinator.data.current.wind_bearing
+        return self._bundle.current.wind_bearing
 
     @property
-    def extra_state_attributes(self) -> dict[str, int | str] | None:
+    def extra_state_attributes(self) -> dict[str, float | str] | None:
         """Expose raw GeoSphere attributes that have no first-class HA slot."""
-        data = self.coordinator.data
-        attributes: dict[str, int | str] = {
+        data = self._bundle
+        attributes: dict[str, float | str] = {
             "dataset": self.coordinator.dataset,
             "reference_time": data.reference_time.isoformat(),
             "latitude": self.coordinator.latitude,
@@ -156,7 +173,7 @@ class GeoSphereWeatherEntity(
     @callback
     def _async_forecast_daily(self) -> list[Forecast] | None:
         """Return the daily forecast in native units."""
-        daily = self.coordinator.data.daily
+        daily = self._bundle.daily
         if not daily:
             return None
         forecasts: list[Forecast] = []
@@ -164,26 +181,27 @@ class GeoSphereWeatherEntity(
             forecast_datetime = datetime.combine(
                 point.day, datetime.min.time(), tzinfo=dt_util.UTC
             )
-            forecasts.append(
-                Forecast(
-                    datetime=forecast_datetime.isoformat(),
-                    **{
-                        ATTR_FORECAST_CONDITION: point.condition,
-                        ATTR_FORECAST_NATIVE_TEMP: point.temperature_max,
-                        ATTR_FORECAST_NATIVE_TEMP_LOW: point.temperature_min,
-                        ATTR_FORECAST_NATIVE_PRECIPITATION: point.precipitation,
-                        ATTR_FORECAST_PRECIPITATION_PROBABILITY: point.precipitation_probability,
-                        ATTR_FORECAST_NATIVE_WIND_SPEED: point.wind_speed_max,
-                        ATTR_FORECAST_WIND_BEARING: point.wind_bearing,
-                    },
-                )
-            )
+            forecast: Forecast = {
+                "datetime": forecast_datetime.isoformat(),
+                ATTR_FORECAST_CONDITION: point.condition,
+                ATTR_FORECAST_NATIVE_TEMP: point.temperature_max,
+                ATTR_FORECAST_NATIVE_TEMP_LOW: point.temperature_min,
+                ATTR_FORECAST_NATIVE_PRECIPITATION: point.precipitation,
+                ATTR_FORECAST_PRECIPITATION_PROBABILITY: (
+                    None
+                    if point.precipitation_probability is None
+                    else int(point.precipitation_probability)
+                ),
+                ATTR_FORECAST_NATIVE_WIND_SPEED: point.wind_speed_max,
+                ATTR_FORECAST_WIND_BEARING: point.wind_bearing,
+            }
+            forecasts.append(forecast)
         return forecasts
 
     @callback
     def _async_forecast_hourly(self) -> list[Forecast] | None:
         """Return the hourly (or 15-min) forecast in native units."""
-        hourly = self.coordinator.data.hourly
+        hourly = self._bundle.hourly
         if not hourly:
             return None
         now = dt_util.utcnow()
@@ -194,21 +212,24 @@ class GeoSphereWeatherEntity(
                 time = time.replace(tzinfo=dt_util.UTC)
             if time < now:
                 continue
-            forecasts.append(
-                Forecast(
-                    datetime=time.isoformat(),
-                    **{
-                        ATTR_FORECAST_CONDITION: point.condition,
-                        ATTR_FORECAST_NATIVE_TEMP: point.temperature,
-                        ATTR_FORECAST_HUMIDITY: point.humidity,
-                        ATTR_FORECAST_NATIVE_DEW_POINT: point.dew_point,
-                        ATTR_FORECAST_NATIVE_PRECIPITATION: point.precipitation,
-                        ATTR_FORECAST_PRECIPITATION_PROBABILITY: point.precipitation_probability,
-                        ATTR_FORECAST_CLOUD_COVERAGE: point.cloud_cover,
-                        ATTR_FORECAST_NATIVE_WIND_SPEED: point.wind_speed,
-                        ATTR_FORECAST_NATIVE_WIND_GUST_SPEED: point.wind_gust,
-                        ATTR_FORECAST_WIND_BEARING: point.wind_bearing,
-                    },
-                )
-            )
+            forecast: Forecast = {
+                "datetime": time.isoformat(),
+                ATTR_FORECAST_CONDITION: point.condition,
+                ATTR_FORECAST_NATIVE_TEMP: point.temperature,
+                ATTR_FORECAST_HUMIDITY: point.humidity,
+                ATTR_FORECAST_NATIVE_DEW_POINT: point.dew_point,
+                ATTR_FORECAST_NATIVE_PRECIPITATION: point.precipitation,
+                ATTR_FORECAST_PRECIPITATION_PROBABILITY: (
+                    None
+                    if point.precipitation_probability is None
+                    else int(point.precipitation_probability)
+                ),
+                ATTR_FORECAST_CLOUD_COVERAGE: (
+                    None if point.cloud_cover is None else int(point.cloud_cover)
+                ),
+                ATTR_FORECAST_NATIVE_WIND_SPEED: point.wind_speed,
+                ATTR_FORECAST_NATIVE_WIND_GUST_SPEED: point.wind_gust,
+                ATTR_FORECAST_WIND_BEARING: point.wind_bearing,
+            }
+            forecasts.append(forecast)
         return forecasts
