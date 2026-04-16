@@ -14,6 +14,7 @@ from aiohttp import ClientError, ClientResponseError, ClientTimeout
 from homeassistant.components.weather import (
     ATTR_CONDITION_CLOUDY,
     ATTR_CONDITION_FOG,
+    ATTR_CONDITION_LIGHTNING_RAINY,
     ATTR_CONDITION_PARTLYCLOUDY,
     ATTR_CONDITION_POURING,
     ATTR_CONDITION_RAINY,
@@ -52,7 +53,7 @@ class CurrentConditions:
     wind_gust: float | None = None  # m/s
     wind_bearing: float | None = None  # degrees
     condition: str | None = None
-    symbol: int | None = None
+    symbol: str | None = None
 
 
 @dataclass(slots=True)
@@ -70,7 +71,7 @@ class HourlyPoint:
     wind_gust: float | None = None  # m/s
     wind_bearing: float | None = None  # degrees
     condition: str | None = None
-    symbol: int | None = None
+    symbol: str | None = None
 
 
 @dataclass(slots=True)
@@ -306,9 +307,8 @@ def _derive_condition(
 ) -> str | None:
     """Derive a Home Assistant condition from cloud cover and precipitation.
 
-    GeoSphere's ``sy`` symbol codes are not publicly documented, so we do not
-    rely on them for the primary condition. The raw symbol is still surfaced
-    as an entity attribute for users who want to map it themselves.
+    This is the fallback used when the AROME ``sy`` symbol is unavailable
+    (i.e. for C-LAEF and INCA). It cannot detect thunderstorms or fog.
     """
     if precipitation is not None and precipitation >= 0.1:
         if temperature is not None:
@@ -329,6 +329,7 @@ def _derive_condition(
 
 
 _CONDITION_PRIORITY: tuple[str, ...] = (
+    ATTR_CONDITION_LIGHTNING_RAINY,
     ATTR_CONDITION_POURING,
     ATTR_CONDITION_SNOWY,
     ATTR_CONDITION_SNOWY_RAINY,
@@ -338,6 +339,116 @@ _CONDITION_PRIORITY: tuple[str, ...] = (
     ATTR_CONDITION_PARTLYCLOUDY,
     ATTR_CONDITION_SUNNY,
 )
+
+# AROME ``sy`` weather symbol codes mapped to Home Assistant conditions.
+# Legend published at
+# https://github.com/Geosphere-Austria/dataset-api-docs/issues/30#issuecomment-2042539848
+_SY_TO_CONDITION: dict[int, str] = {
+    1: ATTR_CONDITION_SUNNY,             # Wolkenlos (cloudless)
+    2: ATTR_CONDITION_SUNNY,             # Heiter (fair)
+    3: ATTR_CONDITION_PARTLYCLOUDY,      # Wolkig (partly cloudy)
+    4: ATTR_CONDITION_CLOUDY,            # Stark bewölkt (mostly cloudy)
+    5: ATTR_CONDITION_CLOUDY,            # Bedeckt (overcast)
+    6: ATTR_CONDITION_FOG,               # Bodennebel (ground fog)
+    7: ATTR_CONDITION_FOG,               # Hochnebel (high fog / stratus)
+    8: ATTR_CONDITION_RAINY,             # Leichter Regen (light rain)
+    9: ATTR_CONDITION_RAINY,             # Mäßiger Regen (moderate rain)
+    10: ATTR_CONDITION_POURING,          # Starker Regen (heavy rain)
+    11: ATTR_CONDITION_SNOWY_RAINY,      # Leichter Schneeregen (sleet)
+    12: ATTR_CONDITION_SNOWY_RAINY,      # Mäßiger Schneeregen
+    13: ATTR_CONDITION_SNOWY_RAINY,      # Starker Schneeregen
+    14: ATTR_CONDITION_SNOWY,            # Leichter Schneefall (light snow)
+    15: ATTR_CONDITION_SNOWY,            # Mäßiger Schneefall (moderate snow)
+    16: ATTR_CONDITION_SNOWY,            # Starker Schneefall (heavy snow)
+    17: ATTR_CONDITION_RAINY,            # Leichter Regenschauer (rain shower)
+    18: ATTR_CONDITION_RAINY,            # Mäßiger Regenschauer
+    19: ATTR_CONDITION_POURING,          # Starker Regenschauer (heavy rain shower)
+    20: ATTR_CONDITION_SNOWY_RAINY,      # Leichter Schneeregenschauer (sleet shower)
+    21: ATTR_CONDITION_SNOWY_RAINY,      # Mäßiger Schneeregenschauer
+    22: ATTR_CONDITION_SNOWY_RAINY,      # Starker Schneeregenschauer
+    23: ATTR_CONDITION_SNOWY,            # Leichter Schneeschauer (snow shower)
+    24: ATTR_CONDITION_SNOWY,            # Mäßiger Schneeschauer
+    25: ATTR_CONDITION_SNOWY,            # Starker Schneeschauer (heavy snow shower)
+    26: ATTR_CONDITION_LIGHTNING_RAINY,  # Leichtes Gewitter (thunderstorm)
+    27: ATTR_CONDITION_LIGHTNING_RAINY,  # Mäßiges Gewitter
+    28: ATTR_CONDITION_LIGHTNING_RAINY,  # Starkes Gewitter (severe thunderstorm)
+    29: ATTR_CONDITION_LIGHTNING_RAINY,  # Gewitter mit Schneeregen (thunderstorm + sleet)
+    30: ATTR_CONDITION_LIGHTNING_RAINY,  # Starkes Gewitter mit Schneeregen
+    31: ATTR_CONDITION_LIGHTNING_RAINY,  # Gewitter mit Schneefall (thunderstorm + snow)
+    32: ATTR_CONDITION_LIGHTNING_RAINY,  # Starkes Gewitter mit Schneefall
+}
+
+
+_SY_DESCRIPTION: dict[int, str] = {
+    1: "Wolkenlos",
+    2: "Heiter",
+    3: "Wolkig",
+    4: "Stark bewölkt",
+    5: "Bedeckt",
+    6: "Bodennebel",
+    7: "Hochnebel",
+    8: "Leichter Regen",
+    9: "Mäßiger Regen",
+    10: "Starker Regen",
+    11: "Leichter Schneeregen",
+    12: "Mäßiger Schneeregen",
+    13: "Starker Schneeregen",
+    14: "Leichter Schneefall",
+    15: "Mäßiger Schneefall",
+    16: "Starker Schneefall",
+    17: "Leichter Regenschauer",
+    18: "Mäßiger Regenschauer",
+    19: "Starker Regenschauer",
+    20: "Leichter Schneeregenschauer",
+    21: "Mäßiger Schneeregenschauer",
+    22: "Starker Schneeregenschauer",
+    23: "Leichter Schneeschauer",
+    24: "Mäßiger Schneeschauer",
+    25: "Starker Schneeschauer",
+    26: "Leichtes Gewitter",
+    27: "Mäßiges Gewitter",
+    28: "Starkes Gewitter",
+    29: "Gewitter mit Schneeregen",
+    30: "Starkes Gewitter mit Schneeregen",
+    31: "Gewitter mit Schneefall",
+    32: "Starkes Gewitter mit Schneefall",
+}
+
+
+# INCA ``pt`` precipitation type codes. Only partially documented; unknown
+# codes are exposed as their numeric string so they can be identified and
+# mapped once observed in live data.
+#
+# The following precipitation typess exist and need to be mapped:
+#  * Rain              = 1
+#  * Snow/rain mix
+#  * Snow              = 7
+#  * Freezing rain
+#  * No precipitation  = 255
+_PT_DESCRIPTION: dict[int, str] = {
+    1: "Regen",
+    7: "Schnee",
+    255: "Kein Niederschlag",
+}
+
+
+def _condition_from_pt(
+    pt_code: int | None, precipitation: float | None
+) -> str | None:
+    """Derive a condition from the INCA precipitation type and amount.
+
+    Returns ``None`` for unknown or unmapped codes so the caller can fall
+    back to ``_derive_condition``.
+    See _PT_DESCRIPTION for the pt_code values that are currently mapped.
+    """
+    if pt_code == 1:
+        if precipitation is not None and precipitation >= 2.5:
+            return ATTR_CONDITION_POURING
+        if precipitation is not None and precipitation >= 0.1:
+            return ATTR_CONDITION_RAINY
+    if pt_code == 7:
+        return ATTR_CONDITION_SNOWY
+    return None
 
 
 def _dominant_condition(conditions: list[str | None]) -> str | None:
@@ -379,12 +490,15 @@ def _parse_nwp(payload: dict[str, Any]) -> WeatherBundle:
         wind_speed, wind_bearing = _wind_from_components(u10m[idx], v10m[idx])
         gust_speed, _ = _wind_from_components(ugust[idx], vgust[idx])
         cloud_pct = tcc[idx] * 100.0 if tcc[idx] is not None else None
-        symbol = int(sy[idx]) if sy[idx] is not None else None
-        condition = _derive_condition(
-            cloud_pct=cloud_pct,
-            precipitation=precipitation,
-            temperature=t2m[idx],
-        )
+        sy_code = int(sy[idx]) if sy[idx] is not None else None
+        condition = _SY_TO_CONDITION.get(sy_code) if sy_code is not None else None
+        if condition is None:
+            condition = _derive_condition(
+                cloud_pct=cloud_pct,
+                precipitation=precipitation,
+                temperature=t2m[idx],
+            )
+        symbol_desc = _SY_DESCRIPTION.get(sy_code) if sy_code is not None else None
         hourly.append(
             HourlyPoint(
                 time=ts,
@@ -396,7 +510,7 @@ def _parse_nwp(payload: dict[str, Any]) -> WeatherBundle:
                 wind_gust=gust_speed,
                 wind_bearing=wind_bearing,
                 condition=condition,
-                symbol=symbol,
+                symbol=symbol_desc,
             )
         )
 
@@ -509,13 +623,15 @@ def _parse_nowcast(payload: dict[str, Any]) -> WeatherBundle:
     hourly: list[HourlyPoint] = []
     for idx, ts in enumerate(raw.timestamps):
         precipitation = rr[idx]
-        symbol = int(pt[idx]) if pt[idx] is not None else None
-        condition = _derive_condition(
-            cloud_pct=None,
-            precipitation=precipitation,
-            temperature=t2m[idx],
-            default=ATTR_CONDITION_PARTLYCLOUDY,
-        )
+        pt_code = int(pt[idx]) if pt[idx] is not None else None
+        condition = _condition_from_pt(pt_code, precipitation)
+        if condition is None:
+            condition = _derive_condition(
+                cloud_pct=None,
+                precipitation=precipitation,
+                temperature=t2m[idx],
+                default=ATTR_CONDITION_PARTLYCLOUDY,
+            )
         hourly.append(
             HourlyPoint(
                 time=ts,
@@ -527,7 +643,7 @@ def _parse_nowcast(payload: dict[str, Any]) -> WeatherBundle:
                 wind_gust=fx[idx],
                 wind_bearing=dd[idx],
                 condition=condition,
-                symbol=symbol,
+                symbol=_PT_DESCRIPTION.get(pt_code, str(pt_code)) if pt_code is not None else None,
             )
         )
 

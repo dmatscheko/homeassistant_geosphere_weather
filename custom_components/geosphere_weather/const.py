@@ -86,7 +86,6 @@ NWP_PARAMETERS: Final = (
     "tcc",       # total cloud cover, fraction 0..1
     "sp",        # surface pressure, Pa
     "rr_acc",    # total precipitation, accumulated since init, mm
-    "snow_acc",  # total snowfall, accumulated, mm
     "u10m",      # 10 m eastward wind component, m/s
     "v10m",      # 10 m northward wind component, m/s
     "ugust",     # gust eastward component, m/s

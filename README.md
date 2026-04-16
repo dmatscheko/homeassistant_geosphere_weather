@@ -10,8 +10,8 @@ and the surrounding Alpine region, based on the open
 
   | Model | Dataset ID | Horizon | Step | Recalculation interval | Grid size | HA platform | Highlights |
   |-------|------------|---------|------|------------------------|-----------|-------------|------------|
-  | **AROME** | [`nwp-v1-1h-2500m`](https://data.hub.geosphere.at/dataset/nwp-v1-1h-2500m) | 60 h | 1 h | 3 h | 2.5 km | `weather` | High-resolution weather model for temperature, precipitation, wind, radiation, humidity, thunderstorms, cloud cover, and pressure |
-  | **C-LAEF** | [`ensemble-v1-1h-2500m`](https://data.hub.geosphere.at/dataset/ensemble-v1-1h-2500m) | 60 h | 1 h | 12 h | 2.5 km | `weather` | Ensemble forecast for temperature, precipitation, wind, radiation, thunderstorms, and cloud cover (derived from p10/p50/p90) |
+  | **AROME** | [`nwp-v1-1h-2500m`](https://data.hub.geosphere.at/dataset/nwp-v1-1h-2500m) | 60 h | 1 h | 3 h | 2.5 km | `weather` | High-resolution weather model for temperature, precipitation, wind, humidity, thunderstorms, cloud cover, and pressure |
+  | **C-LAEF** | [`ensemble-v1-1h-2500m`](https://data.hub.geosphere.at/dataset/ensemble-v1-1h-2500m) | 60 h | 1 h | 12 h | 2.5 km | `weather` | Ensemble forecast for temperature, precipitation, wind, and cloud cover (derived from p10/p50/p90) |
   | **INCA** | [`nowcast-v1-15min-1km`](https://data.hub.geosphere.at/dataset/nowcast-v1-15min-1km) | 3 h | 15 min | 15 min | 1 km | `weather` | Short-term forecast (nowcast) for temperature, precipitation, wind, and humidity |
   | **WRF-Chem** | [`chem-v2-1h-3km`](https://data.hub.geosphere.at/dataset/chem-v2-1h-3km) | 73 h | 1 h | 24 h | 3 km | `sensor` | Pollutant forecast for NO₂, O₃, PM10, and PM2.5 |
 
@@ -51,10 +51,12 @@ integration.
 
 ## Notes & caveats
 
-- GeoSphere's `sy` (weather symbol) codes are not publicly documented. The
-  integration therefore derives the Home Assistant condition string from cloud
-  cover and precipitation instead of `sy`. The raw symbol is still exposed as
-  the `symbol` extra-state attribute for users who want to map it themselves.
+- The AROME `sy` (weather symbol) codes are mapped to Home Assistant
+  conditions using the [published legend](https://github.com/Geosphere-Austria/dataset-api-docs/issues/30#issuecomment-2042539848).
+  For datasets without a symbol code (C-LAEF, INCA), the condition is
+  derived from cloud cover and precipitation instead. The GeoSphere symbol
+  description (e.g. "Leichter Regen") is exposed as the `symbol`
+  extra-state attribute.
 - The API snaps the requested coordinates to the nearest model grid cell
   (≈2.5 km for AROME, ≈1 km for INCA). Do not expect metre-precision.
 - AROME is re-run every 3 hours and C-LAEF every 12 hours; the integration polls every
@@ -63,3 +65,5 @@ integration.
 - The WRF-Chem dataset has a different shape from the weather datasets — it
   produces `sensor.<title>_nitrogen_dioxide`, `…_ozone`, `…_particulate_matter_pm10`,
   `…_particulate_matter_pm2_5` entities instead of a `weather.<title>` entity.
+
+/dma
