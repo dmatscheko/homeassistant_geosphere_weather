@@ -1,0 +1,47 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_service%]"
+    },
+    "error": {
+      "zone_not_found": "The selected zone is not available.",
+      "zone_missing_coordinates": "The selected zone does not have latitude/longitude attributes.",
+      "out_of_range": "This location is outside the coverage of the selected GeoSphere dataset."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "zone": "Zone",
+          "dataset": "Dataset"
+        },
+        "description": "Select a Home Assistant zone — its latitude and longitude are forwarded to the GeoSphere API — and pick which GeoSphere dataset to use. Weather datasets create a weather entity; the air-quality dataset creates sensor entities (NO₂, O₃, PM10, PM2.5).\n\nDataset documentation:\n{doc_links}"
+      }
+    }
+  },
+  "selector": {
+    "dataset": {
+      "options": {
+        "nwp-v1-1h-2500m": "AROME weather — 60 h weather forecast (hourly)",
+        "ensemble-v1-1h-2500m": "C-LAEF weather — 60 h ensemble weather forecast with precipitation probability (hourly)",
+        "nowcast-v1-15min-1km": "INCA nowcast — 3 h weather forecast (15 minute steps)",
+        "chem-v2-1h-3km": "WRF-Chem air quality — 73 h forecast of NO₂, O₃, PM10, PM2.5 (hourly)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "no2": {
+        "name": "Nitrogen dioxide"
+      },
+      "o3": {
+        "name": "Ozone"
+      },
+      "pm10": {
+        "name": "Particulate matter PM10"
+      },
+      "pm25": {
+        "name": "Particulate matter PM2.5"
+      }
+    }
+  }
+}

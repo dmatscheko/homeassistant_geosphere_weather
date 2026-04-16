@@ -1,0 +1,47 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Dienst ist bereits konfiguriert"
+    },
+    "error": {
+      "zone_not_found": "Die ausgewählte Zone ist nicht verfügbar.",
+      "zone_missing_coordinates": "Die ausgewählte Zone hat keine gültigen Koordinaten.",
+      "out_of_range": "Dieser Standort liegt außerhalb des Abdeckungsbereichs des gewählten GeoSphere-Datasets."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "zone": "Zone",
+          "dataset": "Dataset"
+        },
+        "description": "Wähle eine Home-Assistant-Zone (deren Länge/Breite werden an die GeoSphere-API übergeben) und das gewünschte GeoSphere-Dataset. Wetter-Datasets erzeugen eine Wetter-Entity; das Luftqualitäts-Dataset erzeugt Sensor-Entities (NO₂, O₃, PM10, PM2.5).\n\nDataset-Dokumentation:\n{doc_links}"
+      }
+    }
+  },
+  "selector": {
+    "dataset": {
+      "options": {
+        "nwp-v1-1h-2500m": "AROME Wetter — 60-Stunden-Wetterprognose (stündlich)",
+        "ensemble-v1-1h-2500m": "C-LAEF Wetter — 60-Stunden-Wetterprognose mit Niederschlagswahrscheinlichkeit (stündlich)",
+        "nowcast-v1-15min-1km": "INCA Nowcast — 3-Stunden-Wetterprognose (15-Minuten-Schritte)",
+        "chem-v2-1h-3km": "WRF-Chem Luftqualität — 73-Stunden-Prognose für NO₂, O₃, PM10, PM2.5 (stündlich)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "no2": {
+        "name": "Stickstoffdioxid"
+      },
+      "o3": {
+        "name": "Ozon"
+      },
+      "pm10": {
+        "name": "Feinstaub PM10"
+      },
+      "pm25": {
+        "name": "Feinstaub PM2,5"
+      }
+    }
+  }
+}
