@@ -16,12 +16,20 @@
           "zone": "Zone",
           "dataset": "Dataset"
         },
+        "data_description": {
+          "zone": "Home Assistant zone whose latitude and longitude will be forwarded to the GeoSphere API.",
+          "dataset": "Which GeoSphere forecast dataset to query. Weather datasets create a weather entity; the air-quality dataset creates sensor entities."
+        },
         "description": "Select a Home Assistant zone — its latitude and longitude are forwarded to the GeoSphere API — and pick which GeoSphere dataset to use. Weather datasets create a weather entity; the air-quality dataset creates sensor entities (NO₂, O₃, PM10, PM2.5).\n\nDataset documentation:\n{doc_links}"
       },
       "reconfigure": {
         "data": {
           "zone": "Zone",
           "dataset": "Dataset"
+        },
+        "data_description": {
+          "zone": "Home Assistant zone whose latitude and longitude will be forwarded to the GeoSphere API.",
+          "dataset": "Which GeoSphere forecast dataset to query. Changing this may replace the weather entity with sensor entities (or vice versa)."
         },
         "description": "Change the zone and/or dataset for this GeoSphere integration. Switching datasets may replace the weather entity with sensor entities (or vice versa).\n\nDataset documentation:\n{doc_links}"
       }

@@ -204,6 +204,42 @@ async def test_reconfigure_flow_out_of_range_shows_error(
     assert result["errors"] == {"base": "out_of_range"}
 
 
+async def test_reconfigure_flow_zone_not_found(
+    hass: HomeAssistant, bypass_setup_fixture: None
+) -> None:
+    """Reconfigure with a non-existing zone re-shows the form with an error."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    _register_zone(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+        unique_id=f"{ZONE_ID}_{DATASET_NWP}",
+    )
+    entry.add_to_hass(hass)
+
+    init = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        init["flow_id"],
+        user_input={CONF_ZONE: "zone.does_not_exist", CONF_DATASET: DATASET_NWP},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "zone_not_found"}
+
+
+async def test_user_flow_form_contains_doc_links_placeholder(
+    hass: HomeAssistant, bypass_setup_fixture: None
+) -> None:
+    """The initial user form must expose the rendered dataset doc-link list."""
+    init = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    assert init["type"] == FlowResultType.FORM
+    placeholders = init.get("description_placeholders") or {}
+    assert "doc_links" in placeholders
+    assert "AROME" in placeholders["doc_links"]
+
+
 async def test_user_flow_rejects_duplicate(
     hass: HomeAssistant, bypass_setup_fixture: None
 ) -> None:

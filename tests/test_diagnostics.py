@@ -59,3 +59,38 @@ async def test_diagnostics_redacts_sensitive_fields(hass: HomeAssistant) -> None
     # The forecast payload itself is non-sensitive and should pass through.
     assert isinstance(diagnostics["data"], dict)
     assert "reference_time" in diagnostics["data"]
+
+
+async def test_diagnostics_handles_missing_coordinator_data(
+    hass: HomeAssistant,
+) -> None:
+    """If no update has succeeded yet, diagnostics still renders with data=None."""
+    from custom_components.geosphere_weather.coordinator import (
+        GeoSphereDataUpdateCoordinator,
+    )
+
+    hass.states.async_set(
+        ZONE_ID,
+        "zoning",
+        {
+            "friendly_name": "Home",
+            ATTR_LATITUDE: 48.208,
+            ATTR_LONGITUDE: 16.373,
+        },
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+        unique_id=f"{ZONE_ID}_{DATASET_NWP}",
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = GeoSphereDataUpdateCoordinator(
+        hass, entry, 48.208, 16.373, DATASET_NWP
+    )
+    entry.runtime_data = coordinator  # type: ignore[misc]
+
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["data"] is None
+    assert diagnostics["coordinator"]["dataset"] == DATASET_NWP
+    assert diagnostics["coordinator"]["latitude"] == REDACTED

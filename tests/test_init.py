@@ -253,3 +253,58 @@ async def test_setup_without_zone_is_not_ready(hass: HomeAssistant) -> None:
     assert not await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_setup_zone_missing_coordinates_is_not_ready(
+    hass: HomeAssistant,
+) -> None:
+    """A zone without latitude/longitude also goes to setup-retry."""
+    hass.states.async_set(ZONE_ID, "zoning", {"friendly_name": "Home"})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+        unique_id=f"{ZONE_ID}_{DATASET_NWP}",
+    )
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_setup_unsupported_dataset_errors(hass: HomeAssistant) -> None:
+    """An unknown dataset in entry data raises ConfigEntryError → SETUP_ERROR."""
+    _register_home(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: "not-a-real-dataset"},
+        unique_id="bad_dataset",
+    )
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+
+
+async def test_setup_first_refresh_failure_retries(hass: HomeAssistant) -> None:
+    """An API failure during the first refresh puts the entry into setup-retry."""
+    from aiohttp import ClientError
+
+    _register_home(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+        unique_id=f"{ZONE_ID}_{DATASET_NWP}",
+    )
+    entry.add_to_hass(hass)
+
+    def _get(*_args, **_kwargs):
+        raise ClientError("network down")
+
+    with patch(
+        "custom_components.geosphere_weather.coordinator.async_get_clientsession"
+    ) as mock_session:
+        mock_session.return_value.get = _get
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.SETUP_RETRY

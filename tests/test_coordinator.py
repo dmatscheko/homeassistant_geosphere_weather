@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
+from aiohttp import ClientError, ClientResponseError, RequestInfo
 from homeassistant.components.weather import (
     ATTR_CONDITION_CLOUDY,
     ATTR_CONDITION_LIGHTNING_RAINY,
@@ -16,9 +18,14 @@ from homeassistant.components.weather import (
     ATTR_CONDITION_SNOWY_RAINY,
     ATTR_CONDITION_SUNNY,
 )
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import UpdateFailed
+from yarl import URL
 
+from custom_components.geosphere_weather.const import DATASET_NWP, DOMAIN
 from custom_components.geosphere_weather.coordinator import (
     AirQualityBundle,
+    GeoSphereDataUpdateCoordinator,
     WeatherBundle,
     _condition_from_pt,
     _derive_condition,
@@ -196,6 +203,121 @@ def test_parse_rejects_missing_features() -> None:
     payload["features"] = []
     with pytest.raises(ValueError):
         _parse_nwp(payload)
+
+
+class _RaiseResponse:
+    """Async context manager whose ``raise_for_status`` raises a given error."""
+
+    def __init__(self, err: Exception) -> None:
+        self._err = err
+        self.status = 500
+
+    async def __aenter__(self) -> _RaiseResponse:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+    def raise_for_status(self) -> None:
+        raise self._err
+
+    async def json(self) -> dict:  # pragma: no cover - never reached
+        return {}
+
+
+class _PayloadResponse:
+    """Stub that returns a fixed JSON payload."""
+
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+        self.status = 200
+
+    async def __aenter__(self) -> _PayloadResponse:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+    def raise_for_status(self) -> None:
+        return None
+
+    async def json(self) -> dict:
+        return self._payload
+
+
+def _build_coordinator(hass: HomeAssistant) -> GeoSphereDataUpdateCoordinator:
+    """Create a coordinator with a MockConfigEntry for error-path tests."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    entry.add_to_hass(hass)
+    return GeoSphereDataUpdateCoordinator(hass, entry, 48.2, 16.3, DATASET_NWP)
+
+
+async def test_coordinator_http_error_raises_update_failed(
+    hass: HomeAssistant,
+) -> None:
+    """HTTP 5xx responses surface as UpdateFailed with the translated key."""
+    coordinator = _build_coordinator(hass)
+    request_info = RequestInfo(
+        url=URL("https://example.invalid/"),
+        method="GET",
+        headers={},  # type: ignore[arg-type]
+        real_url=URL("https://example.invalid/"),
+    )
+    err = ClientResponseError(
+        request_info=request_info,
+        history=(),
+        status=503,
+        message="Service Unavailable",
+    )
+
+    def _get(*_args, **_kwargs) -> _RaiseResponse:
+        return _RaiseResponse(err)
+
+    with patch.object(coordinator, "_session") as session:
+        session.get = _get
+        with pytest.raises(UpdateFailed) as exc:
+            await coordinator._async_update_data()
+    assert exc.value.translation_key == "api_http_error"
+    assert exc.value.translation_placeholders == {
+        "status": "503",
+        "reason": "Service Unavailable",
+    }
+
+
+async def test_coordinator_client_error_raises_update_failed(
+    hass: HomeAssistant,
+) -> None:
+    """Transport errors surface as UpdateFailed with the communication key."""
+    coordinator = _build_coordinator(hass)
+
+    def _get(*_args, **_kwargs):
+        raise ClientError("boom")
+
+    with patch.object(coordinator, "_session") as session:
+        session.get = _get
+        with pytest.raises(UpdateFailed) as exc:
+            await coordinator._async_update_data()
+    assert exc.value.translation_key == "api_communication_error"
+
+
+async def test_coordinator_malformed_payload_raises_update_failed(
+    hass: HomeAssistant,
+) -> None:
+    """Structurally broken payloads surface as UpdateFailed with unexpected-response."""
+    coordinator = _build_coordinator(hass)
+    broken = nwp_payload()
+    broken["timestamps"] = []
+
+    def _get(*_args, **_kwargs) -> _PayloadResponse:
+        return _PayloadResponse(broken)
+
+    with patch.object(coordinator, "_session") as session:
+        session.get = _get
+        with pytest.raises(UpdateFailed) as exc:
+            await coordinator._async_update_data()
+    assert exc.value.translation_key == "api_unexpected_response"
 
 
 def test_parse_chem_produces_air_quality_bundle() -> None:
