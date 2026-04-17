@@ -85,6 +85,120 @@ uv run pytest
 CI on GitHub Actions runs the same three commands on every push and pull
 request via [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
+## Examples
+
+All examples assume a config entry titled "Home (AROME)" (zone `zone.home`,
+dataset AROME). Adjust entity IDs for your own setup.
+
+### Lovelace weather card
+
+```yaml
+type: weather-forecast
+entity: weather.home_arome
+forecast_type: hourly
+```
+
+For a daily outlook switch to `forecast_type: daily` (works for AROME and
+C-LAEF; INCA only covers the next ~3 hours, so it exposes hourly only).
+
+### Notify on a thunderstorm, using the fine-grained symbol sensor
+
+The `weather.*` `condition` attribute only has a generic `lightning-rainy`
+state. If you want to distinguish "light thunderstorm" from "severe
+thunderstorm with snow", use `sensor.<title>_weather_symbol`:
+
+```yaml
+alias: Notify on severe thunderstorm
+trigger:
+  - platform: state
+    entity_id: sensor.home_arome_weather_symbol
+    to:
+      - heavy_thunderstorm
+      - heavy_thunderstorm_sleet
+      - heavy_thunderstorm_snow
+action:
+  - service: notify.mobile_app
+    data:
+      title: Severe thunderstorm forecast
+      message: "GeoSphere AROME now reports: {{ states('sensor.home_arome_weather_symbol') }}"
+```
+
+The trigger fires on the stable slug (`heavy_thunderstorm`), not the
+translated label — so the automation keeps working regardless of the user's
+Home Assistant language.
+
+### Heavy-rain warning from the hourly forecast
+
+```yaml
+alias: Warn if >5 mm rain in the next hour
+trigger:
+  - platform: time_pattern
+    minutes: "/15"
+condition:
+  - condition: template
+    value_template: >-
+      {% set fc = state_attr('weather.home_arome', 'forecast') %}
+      {{ fc and fc[0].precipitation|float(0) >= 5 }}
+action:
+  - service: notify.mobile_app
+    data:
+      title: Heavy rain incoming
+      message: >-
+        {{ state_attr('weather.home_arome', 'forecast')[0].precipitation }} mm
+        expected in the next hour.
+```
+
+### Air-quality automation
+
+```yaml
+alias: Close window on PM2.5 spike
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.home_wrf_chem_particulate_matter_pm2_5
+    above: 25
+action:
+  - service: notify.mobile_app
+    data:
+      title: Air-quality alert
+      message: "PM2.5 at {{ states('sensor.home_wrf_chem_particulate_matter_pm2_5') }} µg/m³"
+```
+
+### Template sensor: daily max temperature
+
+```yaml
+template:
+  - sensor:
+      - name: Today max temperature
+        unit_of_measurement: "°C"
+        state: >-
+          {% set d = state_attr('weather.home_arome', 'forecast') %}
+          {{ d[0].temperature if d else none }}
+```
+
+## Troubleshooting
+
+### The config flow says *"This location is outside the coverage of the selected GeoSphere dataset."*
+
+Each dataset has its own bounding box:
+
+- **AROME / C-LAEF**: Alpine region (roughly 43°N–52°N, 5.5°E–22°E).
+- **INCA**: Austria plus a small margin (45.5°N–49.5°N, 8.1°E–17.7°E).
+- **WRF-Chem**: Central Europe (40.9°N–53.7°N, 2.9°E–23.7°E).
+
+Check your zone's lat/lon in *Settings → Areas & Zones* and pick a dataset
+whose bbox covers it.
+
+### *"Failed to connect to the GeoSphere Data Hub API."*
+
+The config flow probes `https://dataset.api.hub.geosphere.at/v1/datasets`.
+If this fails:
+
+1. Verify from your HA host: `curl "https://dataset.api.hub.geosphere.at/v1/datasets"`.
+2. Check [GeoSphere Data Hub status](https://data.hub.geosphere.at/).
+3. The API is rate-limited to ~5 req/s and ~240 req/hour per IP. If several
+   integrations (or other tools) share your IP, you may get throttled;
+   wait a few minutes and retry.
+
 ## Attribution & license
 
 Weather data: © [GeoSphere Austria](https://data.hub.geosphere.at/), licensed

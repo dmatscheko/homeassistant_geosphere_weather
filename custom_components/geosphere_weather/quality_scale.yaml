@@ -53,13 +53,13 @@ rules:
     status: exempt
     comment: Cloud polling API; no local discovery.
   docs-data-update: done
-  docs-examples: todo
+  docs-examples: done
   docs-known-limitations: done
   docs-supported-devices:
     status: exempt
     comment: Integration talks to a public API, not hardware.
   docs-supported-functions: done
-  docs-troubleshooting: todo
+  docs-troubleshooting: done
   docs-use-cases: done
   dynamic-devices:
     status: exempt
