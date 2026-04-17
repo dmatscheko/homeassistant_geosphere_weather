@@ -68,7 +68,7 @@ DATASET_SHORT_NAMES: Final[dict[str, str]] = {
 # Per-dataset bounding box (min_lat, min_lon, max_lat, max_lon).
 DATASET_BBOX: Final[dict[str, tuple[float, float, float, float]]] = {
     DATASET_NWP: (42.98, 5.50, 51.82, 22.10),       # Alpine NWP domain
-    DATASET_ENSEMBLE: (42.98, 5.50, 51.82, 22.10),  # Same as AROME
+    DATASET_ENSEMBLE: (42.98, 5.50, 51.82, 22.10),  # Same as AROME / NWP
     DATASET_NOWCAST: (45.50, 8.10, 49.48, 17.74),   # Austria + small margin
     DATASET_CHEM: (40.91, 2.90, 53.74, 23.70),      # Central Europe
 }

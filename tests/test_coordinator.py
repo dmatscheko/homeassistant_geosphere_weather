@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 from aiohttp import ClientError, ClientResponseError, RequestInfo
 from homeassistant.components.weather import (
+    ATTR_CONDITION_CLEAR_NIGHT,
     ATTR_CONDITION_CLOUDY,
     ATTR_CONDITION_LIGHTNING_RAINY,
     ATTR_CONDITION_PARTLYCLOUDY,
@@ -29,9 +30,11 @@ from custom_components.geosphere_weather.coordinator import (
     HourlyPoint,
     WeatherBundle,
     _aggregate_daily,
+    _apply_night_condition,
     _condition_from_pt,
     _derive_condition,
     _dominant_condition,
+    _is_night,
     _parse_chem,
     _parse_datetime,
     _parse_ensemble,
@@ -446,6 +449,59 @@ def test_aggregate_daily_handles_all_none_values() -> None:
     assert day.wind_speed_max is None
     assert day.wind_bearing is None
     assert day.condition is None
+
+
+# Vienna — used for the night/day fixup tests.
+_VIENNA_LAT = 48.208
+_VIENNA_LON = 16.373
+
+
+def test_is_night_matches_solar_elevation_for_vienna() -> None:
+    """Midnight UTC in April in Vienna is clearly night; midday is clearly day."""
+    assert _is_night(datetime(2026, 4, 17, 0, 0, tzinfo=UTC), _VIENNA_LAT, _VIENNA_LON)
+    assert not _is_night(
+        datetime(2026, 4, 17, 12, 0, tzinfo=UTC), _VIENNA_LAT, _VIENNA_LON
+    )
+
+
+def test_apply_night_condition_rewrites_sunny_to_clear_night() -> None:
+    """AROME ``sy=1`` at night must be converted to ``clear-night`` after parse."""
+    # Seed the payload so every step is at night over Vienna.
+    payload = nwp_payload()
+    payload["reference_time"] = "2026-04-16T22:00:00Z"
+    payload["timestamps"] = [
+        "2026-04-16T23:00:00Z",
+        "2026-04-17T00:00:00Z",
+        "2026-04-17T01:00:00Z",
+    ]
+    bundle = _parse_nwp(payload)
+    # Before the fixup the first step is sunny (sy=1) — pre-condition.
+    assert bundle.hourly[0].condition == ATTR_CONDITION_SUNNY
+
+    _apply_night_condition(bundle, _VIENNA_LAT, _VIENNA_LON)
+
+    assert bundle.hourly[0].condition == ATTR_CONDITION_CLEAR_NIGHT
+    # ``current`` is re-synced from the first hourly step.
+    assert bundle.current.condition == ATTR_CONDITION_CLEAR_NIGHT
+    # The symbol slug keeps the raw model label — that is *not* a condition,
+    # it's the AROME ``sy`` code and is used for a separately translated
+    # enum sensor.
+    assert bundle.hourly[0].symbol_slug == "cloudless"
+
+
+def test_apply_night_condition_leaves_daytime_points_untouched() -> None:
+    """A daytime sunny step stays sunny."""
+    payload = nwp_payload()  # timestamps at 01..03 UTC, but fixture is April
+    payload["reference_time"] = "2026-04-17T10:00:00Z"
+    payload["timestamps"] = [
+        "2026-04-17T11:00:00Z",
+        "2026-04-17T12:00:00Z",
+        "2026-04-17T13:00:00Z",
+    ]
+    bundle = _parse_nwp(payload)
+    _apply_night_condition(bundle, _VIENNA_LAT, _VIENNA_LON)
+    assert bundle.hourly[0].condition == ATTR_CONDITION_SUNNY
+    assert bundle.current.condition == ATTR_CONDITION_SUNNY
 
 
 def test_parse_chem_produces_air_quality_bundle() -> None:

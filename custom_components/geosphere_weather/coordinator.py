@@ -10,7 +10,10 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientTimeout
+from astral import Observer
+from astral.sun import elevation
 from homeassistant.components.weather import (
+    ATTR_CONDITION_CLEAR_NIGHT,
     ATTR_CONDITION_CLOUDY,
     ATTR_CONDITION_FOG,
     ATTR_CONDITION_LIGHTNING_RAINY,
@@ -198,13 +201,16 @@ class GeoSphereDataUpdateCoordinator(DataUpdateCoordinator[GeoSphereBundle]):
             ) from err
         parser = _PARSERS[self._dataset]
         try:
-            return parser(payload)
+            bundle = parser(payload)
         except (KeyError, IndexError, ValueError, TypeError) as err:
             raise UpdateFailed(
                 translation_domain=DOMAIN,
                 translation_key="api_unexpected_response",
                 translation_placeholders={"error": str(err)},
             ) from err
+        if isinstance(bundle, WeatherBundle):
+            _apply_night_condition(bundle, self._latitude, self._longitude)
+        return bundle
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +361,50 @@ _CONDITION_PRIORITY: tuple[str, ...] = (
     ATTR_CONDITION_CLOUDY,
     ATTR_CONDITION_PARTLYCLOUDY,
     ATTR_CONDITION_SUNNY,
+    # Only picked for buckets whose hourly points are all nighttime — daily
+    # buckets that contain any daytime step will land on SUNNY above.
+    ATTR_CONDITION_CLEAR_NIGHT,
 )
+
+
+def _is_night(ts: datetime, latitude: float, longitude: float) -> bool:
+    """Return True when the sun is below the horizon at ``ts`` for the given location."""
+    observer = Observer(latitude=latitude, longitude=longitude)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    try:
+        return bool(elevation(observer, ts) < 0.0)
+    except ValueError:  # pragma: no cover - extreme latitudes near solstice
+        return False
+
+
+def _apply_night_condition(
+    bundle: WeatherBundle, latitude: float, longitude: float
+) -> None:
+    """Replace ``sunny`` with ``clear-night`` for forecast points after dusk.
+
+    AROME's ``sy`` symbol and the ``_derive_condition`` cloud-cover fallback
+    both produce ``sunny`` regardless of solar position; Home Assistant
+    distinguishes day and night via a separate ``clear-night`` condition.
+    """
+    for point in bundle.hourly:
+        if point.condition == ATTR_CONDITION_SUNNY and _is_night(
+            point.time, latitude, longitude
+        ):
+            point.condition = ATTR_CONDITION_CLEAR_NIGHT
+    # ``current`` was populated from the first hourly step before we walked
+    # the list, so re-sync it from whatever the first step says now.
+    if bundle.hourly:
+        bundle.current.condition = bundle.hourly[0].condition
+    # Recompute per-day condition: parsers ran before the night fixup, so
+    # buckets that are entirely at night would still be tagged ``sunny``.
+    by_day: dict[date, list[str | None]] = defaultdict(list)
+    for point in bundle.hourly:
+        by_day[point.time.astimezone(UTC).date()].append(point.condition)
+    for daily in bundle.daily:
+        conditions = by_day.get(daily.day)
+        if conditions:
+            daily.condition = _dominant_condition(conditions)
 
 # AROME ``sy`` weather symbol codes mapped to Home Assistant conditions.
 # Legend published at
