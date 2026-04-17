@@ -84,6 +84,13 @@ uv run pytest
 CI on GitHub Actions runs the same three commands on every push and pull
 request via [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
+You can also install git pre-commit hooks locally so the code is automatically checked before each commit:
+
+```bash
+uv sync --group dev
+uv run pre-commit install
+```
+
 ## Examples
 
 All examples assume a config entry titled "Home (AROME)" (zone `zone.home`,
