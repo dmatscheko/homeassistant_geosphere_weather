@@ -120,6 +120,90 @@ async def test_reconfigure_flow_updates_entry(
     assert entry.unique_id == f"{ZONE_ID}_{DATASET_CHEM}"
 
 
+async def test_user_flow_zone_not_found(
+    hass: HomeAssistant, bypass_setup_fixture: None
+) -> None:
+    """A zone entity that no longer exists is rejected with zone_not_found."""
+    init = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        init["flow_id"],
+        user_input={CONF_ZONE: "zone.does_not_exist", CONF_DATASET: DATASET_NWP},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "zone_not_found"}
+
+
+async def test_user_flow_zone_missing_coordinates(
+    hass: HomeAssistant, bypass_setup_fixture: None
+) -> None:
+    """A zone with no latitude/longitude is rejected with zone_missing_coordinates."""
+    hass.states.async_set(ZONE_ID, "zoning", {"friendly_name": "Vienna"})
+    init = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        init["flow_id"],
+        user_input={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "zone_missing_coordinates"}
+
+
+async def test_reconfigure_flow_rejects_collision(
+    hass: HomeAssistant, bypass_setup_fixture: None
+) -> None:
+    """Reconfiguring onto an existing entry's zone+dataset is aborted."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    _register_zone(hass)
+    existing = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_CHEM},
+        unique_id=f"{ZONE_ID}_{DATASET_CHEM}",
+    )
+    existing.add_to_hass(hass)
+    editing = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+        unique_id=f"{ZONE_ID}_{DATASET_NWP}",
+    )
+    editing.add_to_hass(hass)
+
+    init = await editing.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        init["flow_id"],
+        user_input={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_CHEM},
+    )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert editing.data[CONF_DATASET] == DATASET_NWP
+
+
+async def test_reconfigure_flow_out_of_range_shows_error(
+    hass: HomeAssistant, bypass_setup_fixture: None
+) -> None:
+    """Out-of-bbox coords in reconfigure re-show the form with an error."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    _register_zone(hass, latitude=0.0, longitude=0.0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+        unique_id=f"{ZONE_ID}_{DATASET_NWP}",
+    )
+    entry.add_to_hass(hass)
+
+    init = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        init["flow_id"],
+        user_input={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NWP},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "out_of_range"}
+
+
 async def test_user_flow_rejects_duplicate(
     hass: HomeAssistant, bypass_setup_fixture: None
 ) -> None:

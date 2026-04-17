@@ -5,9 +5,13 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
+from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.const import CONF_ZONE
 from homeassistant.core import HomeAssistant
 
 from .coordinator import GeoSphereConfigEntry
+
+TO_REDACT = {CONF_ZONE, "latitude", "longitude", "unique_id"}
 
 
 async def async_get_config_entry_diagnostics(
@@ -17,17 +21,23 @@ async def async_get_config_entry_diagnostics(
     coordinator = entry.runtime_data
     data = coordinator.data
     return {
-        "entry": {
-            "title": entry.title,
-            "data": dict(entry.data),
-            "unique_id": entry.unique_id,
-        },
-        "coordinator": {
-            "dataset": coordinator.dataset,
-            "latitude": coordinator.latitude,
-            "longitude": coordinator.longitude,
-            "last_update_success": coordinator.last_update_success,
-        },
+        "entry": async_redact_data(
+            {
+                "title": entry.title,
+                "data": dict(entry.data),
+                "unique_id": entry.unique_id,
+            },
+            TO_REDACT,
+        ),
+        "coordinator": async_redact_data(
+            {
+                "dataset": coordinator.dataset,
+                "latitude": coordinator.latitude,
+                "longitude": coordinator.longitude,
+                "last_update_success": coordinator.last_update_success,
+            },
+            TO_REDACT,
+        ),
         "data": _dump(data),
     }
 

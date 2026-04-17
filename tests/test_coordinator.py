@@ -180,6 +180,24 @@ def test_parse_nowcast_uses_scalar_wind_and_no_daily() -> None:
     assert bundle.hourly[2].condition == ATTR_CONDITION_SNOWY
 
 
+def test_parse_rejects_empty_timestamps() -> None:
+    """A payload with no timestamps must raise a ``ValueError`` the
+    coordinator maps to UpdateFailed.
+    """
+    payload = nwp_payload()
+    payload["timestamps"] = []
+    with pytest.raises(ValueError):
+        _parse_nwp(payload)
+
+
+def test_parse_rejects_missing_features() -> None:
+    """A payload with no GeoJSON features must raise ``ValueError``."""
+    payload = nwp_payload()
+    payload["features"] = []
+    with pytest.raises(ValueError):
+        _parse_nwp(payload)
+
+
 def test_parse_chem_produces_air_quality_bundle() -> None:
     """Chem payload maps to an AirQualityBundle with all four pollutants."""
     bundle = _parse_chem(chem_payload())
