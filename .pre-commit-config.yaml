@@ -1,0 +1,26 @@
+# Run `uv run pre-commit install` once per clone to enable these hooks.
+# They gate every `git commit` on ruff, mypy --strict and pytest all being green.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check
+        entry: uv run ruff check custom_components tests
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: mypy
+        name: mypy --strict
+        entry: uv run mypy --strict custom_components/geosphere_weather
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
