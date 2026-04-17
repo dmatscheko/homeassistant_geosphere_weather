@@ -17,10 +17,10 @@
           "dataset": "Dataset"
         },
         "data_description": {
-          "zone": "Home-Assistant-Zone, deren Länge/Breite an die GeoSphere-API übergeben wird.",
+          "zone": "Home-Assistant-Zone, deren Längengrad/Breitengrad an die GeoSphere-API übergeben wird.",
           "dataset": "Welches GeoSphere-Prognose-Dataset abgefragt wird. Wetter-Datasets erzeugen eine Wetter-Entity; das Luftqualitäts-Dataset erzeugt Sensor-Entities."
         },
-        "description": "Wähle eine Home-Assistant-Zone (deren Länge/Breite werden an die GeoSphere-API übergeben) und das gewünschte GeoSphere-Dataset. Wetter-Datasets erzeugen eine Wetter-Entity; das Luftqualitäts-Dataset erzeugt Sensor-Entities (NO₂, O₃, PM10, PM2.5).\n\nDataset-Dokumentation:\n{doc_links}"
+        "description": "Wähle eine Home-Assistant-Zone (deren Längengrad/Breitengrad werden an die GeoSphere-API übergeben) und das gewünschte GeoSphere-Dataset. Wetter-Datasets erzeugen eine Wetter-Entity; das Luftqualitäts-Dataset erzeugt Sensor-Entities (NO₂, O₃, PM10, PM2.5).\n\nDataset-Dokumentation:\n{doc_links}"
       },
       "reconfigure": {
         "data": {
@@ -28,7 +28,7 @@
           "dataset": "Dataset"
         },
         "data_description": {
-          "zone": "Home-Assistant-Zone, deren Länge/Breite an die GeoSphere-API übergeben wird.",
+          "zone": "Home-Assistant-Zone, deren Längengrad/Breitengrad an die GeoSphere-API übergeben wird.",
           "dataset": "Welches GeoSphere-Prognose-Dataset abgefragt wird. Ein Wechsel kann die Wetter-Entity durch Sensor-Entities ersetzen (oder umgekehrt)."
         },
         "description": "Ändere Zone und/oder Dataset dieser GeoSphere-Integration. Beim Wechsel zwischen Wetter- und Luftqualitäts-Datasets werden die bestehenden Entities ersetzt.\n\nDataset-Dokumentation:\n{doc_links}"
