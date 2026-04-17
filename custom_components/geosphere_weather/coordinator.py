@@ -22,6 +22,7 @@ from homeassistant.components.weather import (
     ATTR_CONDITION_SUNNY,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -146,6 +147,10 @@ class GeoSphereDataUpdateCoordinator(DataUpdateCoordinator[GeoSphereBundle]):
         self._longitude = longitude
         self._dataset = dataset
         self._session = async_get_clientsession(hass)
+        # Populated by async_setup_entry once platforms have been forwarded,
+        # so async_unload_entry knows which platforms were actually loaded
+        # even after the config entry's dataset has been mutated.
+        self.loaded_platforms: tuple[Platform, ...] = ()
 
     @property
     def dataset(self) -> str:
