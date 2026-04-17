@@ -164,6 +164,30 @@ async def test_daily_forecast_none_for_nowcast(hass: HomeAssistant) -> None:
     assert not response[weather_id]["forecast"]
 
 
+async def test_nowcast_weather_entity_exposes_dew_point_and_gust(
+    hass: HomeAssistant,
+) -> None:
+    """INCA is the only dataset that carries dew point and scalar gust — they must surface."""
+    await _setup(hass, DATASET_NOWCAST, nowcast_payload())
+    weather_id = hass.states.async_entity_ids("weather")[0]
+    state = hass.states.get(weather_id)
+    assert state is not None
+    # Fixture first step: td=3.0 (°C) and fx=4.0 m/s. HA converts the native
+    # wind speed to the display unit (km/h = m/s * 3.6 by default), so the
+    # attribute reflects the converted value rather than the raw m/s.
+    assert state.attributes["dew_point"] == pytest.approx(3.0)
+    assert state.attributes["wind_gust_speed"] == pytest.approx(4.0 * 3.6)
+
+
+async def test_ensemble_weather_entity_has_no_humidity(hass: HomeAssistant) -> None:
+    """C-LAEF exposes no humidity percentile — the state must carry no humidity."""
+    await _setup(hass, DATASET_ENSEMBLE, ensemble_payload())
+    weather_id = hass.states.async_entity_ids("weather")[0]
+    state = hass.states.get(weather_id)
+    assert state is not None
+    assert state.attributes.get("humidity") is None
+
+
 async def test_daily_forecast_present_for_nwp(hass: HomeAssistant) -> None:
     """AROME produces a non-empty daily aggregation."""
     await _setup(hass, DATASET_NWP, nwp_payload())

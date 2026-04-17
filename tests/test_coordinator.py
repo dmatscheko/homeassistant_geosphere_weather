@@ -26,7 +26,9 @@ from custom_components.geosphere_weather.const import DATASET_NWP, DOMAIN
 from custom_components.geosphere_weather.coordinator import (
     AirQualityBundle,
     GeoSphereDataUpdateCoordinator,
+    HourlyPoint,
     WeatherBundle,
+    _aggregate_daily,
     _condition_from_pt,
     _derive_condition,
     _dominant_condition,
@@ -64,6 +66,30 @@ def test_wind_from_components_speed_and_bearing() -> None:
     assert _wind_from_components(1.0, None) == (None, None)
 
 
+@pytest.mark.parametrize(
+    ("u", "v", "expected_bearing"),
+    [
+        # v>0 means wind blows toward north → comes *from* the south (180°).
+        (0.0, 1.0, 180.0),
+        # v<0 means wind blows toward south → comes *from* the north (0°).
+        (0.0, -1.0, 0.0),
+        # u<0 means wind blows toward west → comes *from* the east (90°).
+        (-1.0, 0.0, 90.0),
+        # u>0 means wind blows toward east → comes *from* the west (270°).
+        (1.0, 0.0, 270.0),
+    ],
+)
+def test_wind_from_components_bearing_quadrants(
+    u: float, v: float, expected_bearing: float
+) -> None:
+    """Bearing is the meteorological direction the wind comes *from*."""
+    speed, bearing = _wind_from_components(u, v)
+    assert speed == pytest.approx(1.0)
+    assert bearing is not None
+    # 0°/360° are equivalent — compare modulo 360 with a small tolerance.
+    assert math.isclose(bearing % 360.0, expected_bearing % 360.0, abs_tol=1e-6)
+
+
 def test_precip_delta_first_step_averages_from_reference() -> None:
     """Within the first forecast step, accumulated precipitation is spread over the gap."""
     ts = [datetime(2026, 4, 17, 2, 0, tzinfo=UTC)]
@@ -84,6 +110,33 @@ def test_precip_delta_subsequent_steps_are_diffs() -> None:
     assert _precip_delta([2.0, 1.0], 1, ts, ref) == 0.0
     # None propagates through as None.
     assert _precip_delta([None, 1.0], 0, ts, ref) is None
+
+
+def test_precip_delta_zero_hours_returns_value_as_is() -> None:
+    """If the first timestamp is at or before reference time, return the raw value.
+
+    This covers the ``hours <= 0`` guard that would otherwise divide by zero.
+    """
+    ts = [datetime(2026, 4, 17, 0, 0, tzinfo=UTC)]
+    ref = datetime(2026, 4, 17, 0, 0, tzinfo=UTC)
+    # hours == 0 branch: no division, just clamp to >= 0.
+    assert _precip_delta([3.0], 0, ts, ref) == pytest.approx(3.0)
+    # Negative accumulation is clamped to 0.
+    assert _precip_delta([-1.0], 0, ts, ref) == 0.0
+    # If the timestamp is *before* reference time, still take the value as-is.
+    ts_before = [datetime(2026, 4, 16, 23, 0, tzinfo=UTC)]
+    assert _precip_delta([2.0], 0, ts_before, ref) == pytest.approx(2.0)
+
+
+def test_precip_delta_previous_none_falls_back_to_current() -> None:
+    """When the previous accumulator is None, return the current value clamped to 0."""
+    ts = [
+        datetime(2026, 4, 17, 1, 0, tzinfo=UTC),
+        datetime(2026, 4, 17, 2, 0, tzinfo=UTC),
+    ]
+    ref = datetime(2026, 4, 17, 0, 0, tzinfo=UTC)
+    assert _precip_delta([None, 0.7], 1, ts, ref) == pytest.approx(0.7)
+    assert _precip_delta([None, -0.5], 1, ts, ref) == 0.0
 
 
 def test_precip_probability_buckets() -> None:
@@ -318,6 +371,81 @@ async def test_coordinator_malformed_payload_raises_update_failed(
         with pytest.raises(UpdateFailed) as exc:
             await coordinator._async_update_data()
     assert exc.value.translation_key == "api_unexpected_response"
+
+
+def test_aggregate_daily_falls_back_to_hourly_temps_when_min_max_missing() -> None:
+    """If mnt2m/mxt2m are all None, min/max come from the hourly temperature series."""
+    hourly = [
+        HourlyPoint(
+            time=datetime(2026, 4, 17, h, 0, tzinfo=UTC),
+            temperature=t,
+            wind_speed=ws,
+            wind_bearing=wb,
+            condition=cond,
+        )
+        for h, t, ws, wb, cond in [
+            (1, 5.0, 1.0, 90.0, ATTR_CONDITION_SUNNY),
+            (2, 10.0, 3.0, 100.0, ATTR_CONDITION_RAINY),
+            (3, 7.0, 2.0, 110.0, ATTR_CONDITION_CLOUDY),
+        ]
+    ]
+    mnt2m: list[float | None] = [None, None, None]
+    mxt2m: list[float | None] = [None, None, None]
+    daily = _aggregate_daily(hourly, mnt2m, mxt2m)
+    assert len(daily) == 1
+    day = daily[0]
+    assert day.temperature_max == pytest.approx(10.0)
+    assert day.temperature_min == pytest.approx(5.0)
+    # Wind bearing is the bearing at the step with the maximum wind speed.
+    assert day.wind_speed_max == pytest.approx(3.0)
+    assert day.wind_bearing == pytest.approx(100.0)
+    # Dominant condition picks the most significant one present.
+    assert day.condition == ATTR_CONDITION_RAINY
+
+
+def test_aggregate_daily_buckets_across_utc_midnight() -> None:
+    """Hourly points spanning UTC midnight produce one bucket per UTC date."""
+    hourly = [
+        HourlyPoint(
+            time=datetime(2026, 4, 17, 23, 0, tzinfo=UTC),
+            temperature=8.0,
+            precipitation=0.5,
+        ),
+        HourlyPoint(
+            time=datetime(2026, 4, 18, 0, 0, tzinfo=UTC),
+            temperature=6.0,
+            precipitation=0.2,
+        ),
+        HourlyPoint(
+            time=datetime(2026, 4, 18, 1, 0, tzinfo=UTC),
+            temperature=5.0,
+            precipitation=0.0,
+        ),
+    ]
+    daily = _aggregate_daily(hourly, [None, None, None], [None, None, None])
+    assert [d.day.isoformat() for d in daily] == ["2026-04-17", "2026-04-18"]
+    # Precipitation is summed per UTC day.
+    assert daily[0].precipitation == pytest.approx(0.5)
+    assert daily[1].precipitation == pytest.approx(0.2)
+
+
+def test_aggregate_daily_handles_all_none_values() -> None:
+    """With no usable data in a bucket, all aggregates are None / 0."""
+    hourly = [
+        HourlyPoint(time=datetime(2026, 4, 17, 1, 0, tzinfo=UTC)),
+        HourlyPoint(time=datetime(2026, 4, 17, 2, 0, tzinfo=UTC)),
+    ]
+    daily = _aggregate_daily(hourly, [None, None], [None, None])
+    assert len(daily) == 1
+    day = daily[0]
+    assert day.temperature_max is None
+    assert day.temperature_min is None
+    # No precipitation values present → falls back to 0.0 (not None).
+    assert day.precipitation == 0.0
+    assert day.precipitation_probability is None
+    assert day.wind_speed_max is None
+    assert day.wind_bearing is None
+    assert day.condition is None
 
 
 def test_parse_chem_produces_air_quality_bundle() -> None:

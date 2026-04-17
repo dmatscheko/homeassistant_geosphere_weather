@@ -204,6 +204,30 @@ async def test_reconfigure_flow_out_of_range_shows_error(
     assert result["errors"] == {"base": "out_of_range"}
 
 
+def test_within_bbox_unknown_dataset_is_permissive() -> None:
+    """A dataset without a configured bbox must not reject any coordinates.
+
+    This is a safety-net for new datasets added to SUPPORTED_DATASETS before
+    their coverage domain is known.
+    """
+    from custom_components.geosphere_weather.config_flow import _within_bbox
+
+    assert _within_bbox(0.0, 0.0, "some-future-dataset-id") is True
+    assert _within_bbox(90.0, -180.0, "some-future-dataset-id") is True
+
+
+def test_within_bbox_boundaries_are_inclusive() -> None:
+    """Coordinates exactly on the AROME bbox edge are accepted."""
+    from custom_components.geosphere_weather.config_flow import _within_bbox
+
+    # DATASET_NWP bbox is (42.98, 5.50, 51.82, 22.10).
+    assert _within_bbox(42.98, 5.50, DATASET_NWP) is True
+    assert _within_bbox(51.82, 22.10, DATASET_NWP) is True
+    # Just outside on each side must be rejected.
+    assert _within_bbox(42.97, 5.50, DATASET_NWP) is False
+    assert _within_bbox(51.83, 22.10, DATASET_NWP) is False
+
+
 async def test_reconfigure_flow_zone_not_found(
     hass: HomeAssistant, bypass_setup_fixture: None
 ) -> None:

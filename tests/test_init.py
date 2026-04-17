@@ -242,6 +242,45 @@ async def test_reconfigure_switches_zone(hass: HomeAssistant) -> None:
     assert hass.states.async_entity_ids("weather")
 
 
+async def test_purge_stale_entities_removes_foreign_unique_ids(
+    hass: HomeAssistant,
+) -> None:
+    """Registry entries whose unique_id doesn't match the new dataset must be dropped."""
+    from custom_components.geosphere_weather import _purge_stale_entities
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_CHEM},
+        unique_id=f"{ZONE_ID}_{DATASET_CHEM}",
+    )
+    entry.add_to_hass(hass)
+
+    reg = er.async_get(hass)
+    # Seed pretend registry entries from a previous AROME configuration:
+    # a weather entity (unique_id = entry_id) and its weather_symbol sensor.
+    reg.async_get_or_create(
+        "weather", DOMAIN, entry.entry_id, config_entry=entry
+    )
+    reg.async_get_or_create(
+        "sensor", DOMAIN, f"{entry.entry_id}_weather_symbol", config_entry=entry
+    )
+    # Plus a valid WRF-Chem sensor that must survive the purge.
+    reg.async_get_or_create(
+        "sensor", DOMAIN, f"{entry.entry_id}_no2", config_entry=entry
+    )
+
+    _purge_stale_entities(hass, entry, DATASET_CHEM)
+
+    remaining_unique_ids = {
+        e.unique_id for e in er.async_entries_for_config_entry(reg, entry.entry_id)
+    }
+    # The weather entity and weather_symbol sensor are stale → removed.
+    assert entry.entry_id not in remaining_unique_ids
+    assert f"{entry.entry_id}_weather_symbol" not in remaining_unique_ids
+    # The WRF-Chem sensor is expected → kept.
+    assert f"{entry.entry_id}_no2" in remaining_unique_ids
+
+
 async def test_setup_without_zone_is_not_ready(hass: HomeAssistant) -> None:
     """Missing zone puts the entry into setup-retry state."""
     entry = MockConfigEntry(
