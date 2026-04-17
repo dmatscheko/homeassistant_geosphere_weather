@@ -53,7 +53,7 @@ class CurrentConditions:
     wind_gust: float | None = None  # m/s
     wind_bearing: float | None = None  # degrees
     condition: str | None = None
-    symbol: str | None = None
+    symbol_slug: str | None = None
 
 
 @dataclass(slots=True)
@@ -71,7 +71,7 @@ class HourlyPoint:
     wind_gust: float | None = None  # m/s
     wind_bearing: float | None = None  # degrees
     condition: str | None = None
-    symbol: str | None = None
+    symbol_slug: str | None = None
 
 
 @dataclass(slots=True)
@@ -396,57 +396,77 @@ _SY_TO_CONDITION: dict[int, str] = {
 }
 
 
-_SY_DESCRIPTION: dict[int, str] = {
-    1: "Wolkenlos",
-    2: "Heiter",
-    3: "Wolkig",
-    4: "Stark bewölkt",
-    5: "Bedeckt",
-    6: "Bodennebel",
-    7: "Hochnebel",
-    8: "Leichter Regen",
-    9: "Mäßiger Regen",
-    10: "Starker Regen",
-    11: "Leichter Schneeregen",
-    12: "Mäßiger Schneeregen",
-    13: "Starker Schneeregen",
-    14: "Leichter Schneefall",
-    15: "Mäßiger Schneefall",
-    16: "Starker Schneefall",
-    17: "Leichter Regenschauer",
-    18: "Mäßiger Regenschauer",
-    19: "Starker Regenschauer",
-    20: "Leichter Schneeregenschauer",
-    21: "Mäßiger Schneeregenschauer",
-    22: "Starker Schneeregenschauer",
-    23: "Leichter Schneeschauer",
-    24: "Mäßiger Schneeschauer",
-    25: "Starker Schneeschauer",
-    26: "Leichtes Gewitter",
-    27: "Mäßiges Gewitter",
-    28: "Starkes Gewitter",
-    29: "Gewitter mit Schneeregen",
-    30: "Starkes Gewitter mit Schneeregen",
-    31: "Gewitter mit Schneefall",
-    32: "Starkes Gewitter mit Schneefall",
+# Stable English slugs for AROME ``sy`` codes. The slug is the *state* of the
+# weather_symbol enum sensor; it is never shown to the user directly — the
+# Home Assistant translation system maps it to a localized label via
+# ``entity.sensor.weather_symbol.state.<slug>`` in strings.json.
+SY_TO_SLUG: dict[int, str] = {
+    1: "cloudless",
+    2: "fair",
+    3: "partly_cloudy",
+    4: "mostly_cloudy",
+    5: "overcast",
+    6: "ground_fog",
+    7: "high_fog",
+    8: "light_rain",
+    9: "moderate_rain",
+    10: "heavy_rain",
+    11: "light_sleet",
+    12: "moderate_sleet",
+    13: "heavy_sleet",
+    14: "light_snow",
+    15: "moderate_snow",
+    16: "heavy_snow",
+    17: "light_rain_shower",
+    18: "moderate_rain_shower",
+    19: "heavy_rain_shower",
+    20: "light_sleet_shower",
+    21: "moderate_sleet_shower",
+    22: "heavy_sleet_shower",
+    23: "light_snow_shower",
+    24: "moderate_snow_shower",
+    25: "heavy_snow_shower",
+    26: "light_thunderstorm",
+    27: "moderate_thunderstorm",
+    28: "heavy_thunderstorm",
+    29: "thunderstorm_sleet",
+    30: "heavy_thunderstorm_sleet",
+    31: "thunderstorm_snow",
+    32: "heavy_thunderstorm_snow",
 }
 
+WEATHER_SYMBOL_OPTIONS: tuple[str, ...] = tuple(SY_TO_SLUG.values())
 
-# INCA ``pt`` precipitation type codes. Only partially documented; unknown
-# codes are exposed as their numeric string so they can be identified and
-# mapped once observed in live data.
+
+# INCA ``pt`` precipitation-type slugs. Only partially documented; codes not
+# present in this map are exposed as ``None`` so the sensor reports
+# "unknown" rather than an untranslated number.
 #
-# The following precipitation typess exist and need to be mapped:
-#  * Rain              = 1
-#  * Snow/rain mix
-#  * Snow              = 7
-#  * Freezing rain
-#  * No precipitation  = 255
-_PT_DESCRIPTION: dict[int, str] = {
-    1: "Regen",
-    7: "Schnee",
-    255: "Kein Niederschlag",
+# The following precipitation types exist in INCA. Codes for ``sleet`` and
+# ``freezing_rain`` have not been observed yet — when they show up in live
+# data, just add them here; the slugs and translations are already declared
+# in PRECIPITATION_TYPE_OPTIONS and strings.json.
+#  * Rain              = 1  -> "rain"
+#  * Snow/rain mix     = ?  -> "sleet"
+#  * Snow              = 7  -> "snow"
+#  * Freezing rain     = ?  -> "freezing_rain"
+#  * No precipitation  = 255 -> "none"
+PT_TO_SLUG: dict[int, str] = {
+    1: "rain",
+    7: "snow",
+    255: "none",
 }
+
+# After we observed all the INCA precipitation types in the wild and mapped
+# them, we can replace this with:
+# PRECIPITATION_TYPE_OPTIONS: tuple[str, ...] = tuple(PT_TO_SLUG.values())
+PRECIPITATION_TYPE_OPTIONS: tuple[str, ...] = (
+    "rain",
+    "sleet",
+    "snow",
+    "freezing_rain",
+    "none",
+)
 
 
 def _condition_from_pt(
@@ -517,7 +537,7 @@ def _parse_nwp(payload: dict[str, Any]) -> WeatherBundle:
                 precipitation=precipitation,
                 temperature=t2m[idx],
             )
-        symbol_desc = _SY_DESCRIPTION.get(sy_code) if sy_code is not None else None
+        symbol_slug = SY_TO_SLUG.get(sy_code) if sy_code is not None else None
         hourly.append(
             HourlyPoint(
                 time=ts,
@@ -529,7 +549,7 @@ def _parse_nwp(payload: dict[str, Any]) -> WeatherBundle:
                 wind_gust=gust_speed,
                 wind_bearing=wind_bearing,
                 condition=condition,
-                symbol=symbol_desc,
+                symbol_slug=symbol_slug,
             )
         )
 
@@ -543,7 +563,7 @@ def _parse_nwp(payload: dict[str, Any]) -> WeatherBundle:
         wind_gust=first.wind_gust,
         wind_bearing=first.wind_bearing,
         condition=first.condition,
-        symbol=first.symbol,
+        symbol_slug=first.symbol_slug,
     )
 
     daily = _aggregate_daily(hourly, mnt2m, mxt2m)
@@ -664,7 +684,9 @@ def _parse_nowcast(payload: dict[str, Any]) -> WeatherBundle:
                 wind_gust=fx[idx],
                 wind_bearing=dd[idx],
                 condition=condition,
-                symbol=_PT_DESCRIPTION.get(pt_code, str(pt_code)) if pt_code is not None else None,
+                symbol_slug=(
+                    PT_TO_SLUG.get(pt_code) if pt_code is not None else None
+                ),
             )
         )
 
@@ -677,7 +699,7 @@ def _parse_nowcast(payload: dict[str, Any]) -> WeatherBundle:
         wind_gust=first.wind_gust,
         wind_bearing=first.wind_bearing,
         condition=first.condition,
-        symbol=first.symbol,
+        symbol_slug=first.symbol_slug,
     )
 
     return WeatherBundle(

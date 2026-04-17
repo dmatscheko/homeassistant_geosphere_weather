@@ -166,8 +166,6 @@ class GeoSphereWeatherEntity(
             "latitude": self.coordinator.latitude,
             "longitude": self.coordinator.longitude,
         }
-        if data.current.symbol is not None:
-            attributes["symbol"] = data.current.symbol
         return attributes
 
     @callback

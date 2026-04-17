@@ -135,7 +135,10 @@ async def test_reconfigure_switches_weather_to_air_quality(
 
         weather_entities = hass.states.async_entity_ids("weather")
         assert weather_entities, "weather entity should exist for AROME"
-        assert not hass.states.async_entity_ids("sensor")
+        # AROME additionally exposes a translatable weather_symbol enum sensor.
+        arome_sensors = hass.states.async_entity_ids("sensor")
+        assert len(arome_sensors) == 1
+        assert arome_sensors[0].endswith("weather_symbol")
 
         hass.config_entries.async_update_entry(
             entry,

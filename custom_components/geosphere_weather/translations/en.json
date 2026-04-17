@@ -50,6 +50,53 @@
       },
       "pm25": {
         "name": "Particulate matter PM2.5"
+      },
+      "weather_symbol": {
+        "name": "Weather symbol",
+        "state": {
+          "cloudless": "Cloudless",
+          "fair": "Fair",
+          "partly_cloudy": "Partly cloudy",
+          "mostly_cloudy": "Mostly cloudy",
+          "overcast": "Overcast",
+          "ground_fog": "Ground fog",
+          "high_fog": "High fog / stratus",
+          "light_rain": "Light rain",
+          "moderate_rain": "Moderate rain",
+          "heavy_rain": "Heavy rain",
+          "light_sleet": "Light sleet",
+          "moderate_sleet": "Moderate sleet",
+          "heavy_sleet": "Heavy sleet",
+          "light_snow": "Light snow",
+          "moderate_snow": "Moderate snow",
+          "heavy_snow": "Heavy snow",
+          "light_rain_shower": "Light rain shower",
+          "moderate_rain_shower": "Moderate rain shower",
+          "heavy_rain_shower": "Heavy rain shower",
+          "light_sleet_shower": "Light sleet shower",
+          "moderate_sleet_shower": "Moderate sleet shower",
+          "heavy_sleet_shower": "Heavy sleet shower",
+          "light_snow_shower": "Light snow shower",
+          "moderate_snow_shower": "Moderate snow shower",
+          "heavy_snow_shower": "Heavy snow shower",
+          "light_thunderstorm": "Light thunderstorm",
+          "moderate_thunderstorm": "Moderate thunderstorm",
+          "heavy_thunderstorm": "Severe thunderstorm",
+          "thunderstorm_sleet": "Thunderstorm with sleet",
+          "heavy_thunderstorm_sleet": "Severe thunderstorm with sleet",
+          "thunderstorm_snow": "Thunderstorm with snow",
+          "heavy_thunderstorm_snow": "Severe thunderstorm with snow"
+        }
+      },
+      "precipitation_type": {
+        "name": "Precipitation type",
+        "state": {
+          "rain": "Rain",
+          "sleet": "Sleet",
+          "snow": "Snow",
+          "freezing_rain": "Freezing rain",
+          "none": "No precipitation"
+        }
       }
     }
   },

@@ -10,6 +10,7 @@ from homeassistant.helpers import entity_registry as er
 from .const import (
     CONF_DATASET,
     DATASET_PLATFORMS,
+    DATASET_SENSOR_KEYS,
     DEFAULT_DATASET,
     SUPPORTED_DATASETS,
 )
@@ -36,12 +37,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: GeoSphereConfigEntry) ->
 
     platforms = DATASET_PLATFORMS[dataset]
 
-    # After a reconfigure that changes the dataset, entities from the previous
-    # dataset may still be in the registry. When the platform type changes
-    # (weather <-> sensor) they can never be re-used, so purge them here.
-    # For same-platform dataset switches the unique_id scheme is stable, so
-    # the registry keeps the entity and it rebinds cleanly.
-    _purge_stale_entities(hass, entry, platforms)
+    # After a reconfigure that changes the dataset, registry entries from the
+    # previous dataset may no longer match the new entity set — either because
+    # the platform type changed (weather <-> sensor) or because the sensor
+    # keys differ (e.g. AROME -> WRF-Chem, both produce sensors but with
+    # different unique_id suffixes). Purge anything that won't be re-bound.
+    _purge_stale_entities(hass, entry, dataset)
 
     coordinator = GeoSphereDataUpdateCoordinator(
         hass, entry, latitude, longitude, dataset
@@ -72,15 +73,21 @@ async def async_unload_entry(hass: HomeAssistant, entry: GeoSphereConfigEntry) -
 def _purge_stale_entities(
     hass: HomeAssistant,
     entry: GeoSphereConfigEntry,
-    new_platforms: tuple[Platform, ...],
+    dataset: str,
 ) -> None:
-    """Remove registry entries whose domain no longer matches the new dataset."""
+    """Remove registry entries that don't match the new dataset's entity set."""
+    platforms = DATASET_PLATFORMS[dataset]
+    expected_unique_ids: set[str] = set()
+    if Platform.WEATHER in platforms:
+        expected_unique_ids.add(entry.entry_id)
+    for key in DATASET_SENSOR_KEYS[dataset]:
+        expected_unique_ids.add(f"{entry.entry_id}_{key}")
+
     ent_reg = er.async_get(hass)
-    allowed = {platform.value for platform in new_platforms}
     stale = [
         reg_entry.entity_id
         for reg_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id)
-        if reg_entry.domain not in allowed
+        if reg_entry.unique_id not in expected_unique_ids
     ]
     for entity_id in stale:
         ent_reg.async_remove(entity_id)

@@ -1,4 +1,12 @@
-"""Sensor platform for the GeoSphere Austria integration (air quality)."""
+"""Sensor platform for the GeoSphere Austria integration.
+
+Provides two distinct kinds of sensor entities:
+
+* Air-quality measurements (µg/m³) for the WRF-Chem dataset.
+* An enum "weather symbol" / "precipitation type" sensor for the AROME
+  and INCA datasets, exposing the raw model symbol in a way Home Assistant
+  can translate via ``strings.json``.
+"""
 
 from __future__ import annotations
 
@@ -19,15 +27,22 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTRIBUTION,
+    DATASET_CHEM,
     DATASET_DOC_URL,
+    DATASET_NOWCAST,
+    DATASET_NWP,
     DATASET_SHORT_NAMES,
     DOMAIN,
     MANUFACTURER,
 )
 from .coordinator import (
+    PRECIPITATION_TYPE_OPTIONS,
+    WEATHER_SYMBOL_OPTIONS,
     AirQualityBundle,
+    GeoSphereBundle,
     GeoSphereConfigEntry,
     GeoSphereDataUpdateCoordinator,
+    WeatherBundle,
 )
 
 PARALLEL_UPDATES = 0
@@ -35,12 +50,28 @@ PARALLEL_UPDATES = 0
 
 @dataclass(frozen=True, kw_only=True)
 class GeoSphereSensorDescription(SensorEntityDescription):
-    """Describes a GeoSphere air-quality sensor."""
+    """Describes a GeoSphere sensor backed by the coordinator bundle."""
 
-    value_fn: Callable[[AirQualityBundle], float | None]
+    value_fn: Callable[[GeoSphereBundle], float | str | None]
 
 
-SENSOR_DESCRIPTIONS: tuple[GeoSphereSensorDescription, ...] = (
+def _air_quality(field: str) -> Callable[[GeoSphereBundle], float | None]:
+    def getter(bundle: GeoSphereBundle) -> float | None:
+        if not isinstance(bundle, AirQualityBundle):
+            return None
+        value = getattr(bundle.current, field)
+        return None if value is None else float(value)
+
+    return getter
+
+
+def _symbol_slug(bundle: GeoSphereBundle) -> str | None:
+    if not isinstance(bundle, WeatherBundle):
+        return None
+    return bundle.current.symbol_slug
+
+
+AIR_QUALITY_DESCRIPTIONS: tuple[GeoSphereSensorDescription, ...] = (
     GeoSphereSensorDescription(
         key="no2",
         translation_key="no2",
@@ -48,7 +79,7 @@ SENSOR_DESCRIPTIONS: tuple[GeoSphereSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         suggested_display_precision=1,
-        value_fn=lambda bundle: bundle.current.no2,
+        value_fn=_air_quality("no2"),
     ),
     GeoSphereSensorDescription(
         key="o3",
@@ -57,7 +88,7 @@ SENSOR_DESCRIPTIONS: tuple[GeoSphereSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         suggested_display_precision=1,
-        value_fn=lambda bundle: bundle.current.o3,
+        value_fn=_air_quality("o3"),
     ),
     GeoSphereSensorDescription(
         key="pm10",
@@ -66,7 +97,7 @@ SENSOR_DESCRIPTIONS: tuple[GeoSphereSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         suggested_display_precision=1,
-        value_fn=lambda bundle: bundle.current.pm10,
+        value_fn=_air_quality("pm10"),
     ),
     GeoSphereSensorDescription(
         key="pm25",
@@ -75,9 +106,32 @@ SENSOR_DESCRIPTIONS: tuple[GeoSphereSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
         suggested_display_precision=1,
-        value_fn=lambda bundle: bundle.current.pm25,
+        value_fn=_air_quality("pm25"),
     ),
 )
+
+WEATHER_SYMBOL_DESCRIPTION = GeoSphereSensorDescription(
+    key="weather_symbol",
+    translation_key="weather_symbol",
+    device_class=SensorDeviceClass.ENUM,
+    options=list(WEATHER_SYMBOL_OPTIONS),
+    value_fn=_symbol_slug,
+)
+
+PRECIPITATION_TYPE_DESCRIPTION = GeoSphereSensorDescription(
+    key="precipitation_type",
+    translation_key="precipitation_type",
+    device_class=SensorDeviceClass.ENUM,
+    options=list(PRECIPITATION_TYPE_OPTIONS),
+    value_fn=_symbol_slug,
+)
+
+
+_DATASET_DESCRIPTIONS: dict[str, tuple[GeoSphereSensorDescription, ...]] = {
+    DATASET_NWP: (WEATHER_SYMBOL_DESCRIPTION,),
+    DATASET_NOWCAST: (PRECIPITATION_TYPE_DESCRIPTION,),
+    DATASET_CHEM: AIR_QUALITY_DESCRIPTIONS,
+}
 
 
 async def async_setup_entry(
@@ -85,18 +139,19 @@ async def async_setup_entry(
     entry: GeoSphereConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up GeoSphere air-quality sensors from a config entry."""
+    """Set up GeoSphere sensors (air quality or weather symbol) from an entry."""
     coordinator = entry.runtime_data
+    descriptions = _DATASET_DESCRIPTIONS.get(coordinator.dataset, ())
     async_add_entities(
-        GeoSphereAirQualitySensor(entry=entry, coordinator=coordinator, description=desc)
-        for desc in SENSOR_DESCRIPTIONS
+        GeoSphereSensor(entry=entry, coordinator=coordinator, description=desc)
+        for desc in descriptions
     )
 
 
-class GeoSphereAirQualitySensor(
+class GeoSphereSensor(
     CoordinatorEntity[GeoSphereDataUpdateCoordinator], SensorEntity
 ):
-    """A single air-quality sensor backed by the GeoSphere chem dataset."""
+    """A sensor backed by the GeoSphere coordinator bundle."""
 
     entity_description: GeoSphereSensorDescription
     _attr_attribution = ATTRIBUTION
@@ -109,11 +164,13 @@ class GeoSphereAirQualitySensor(
         coordinator: GeoSphereDataUpdateCoordinator,
         description: GeoSphereSensorDescription,
     ) -> None:
-        """Initialise an air-quality sensor."""
+        """Initialise a sensor entity for one description on one config entry."""
         super().__init__(coordinator=coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
-        dataset_label = DATASET_SHORT_NAMES.get(coordinator.dataset, coordinator.dataset)
+        dataset_label = DATASET_SHORT_NAMES.get(
+            coordinator.dataset, coordinator.dataset
+        )
         self._attr_device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, entry.entry_id)},
@@ -124,10 +181,10 @@ class GeoSphereAirQualitySensor(
         )
 
     @property
-    def native_value(self) -> float | None:
-        """Return the current pollutant concentration in µg/m³."""
+    def native_value(self) -> float | str | None:
+        """Return the current value from the coordinator bundle."""
         bundle = self.coordinator.data
-        if not isinstance(bundle, AirQualityBundle):
+        if bundle is None:
             return None
         return self.entity_description.value_fn(bundle)
 
@@ -135,7 +192,7 @@ class GeoSphereAirQualitySensor(
     def extra_state_attributes(self) -> dict[str, float | str] | None:
         """Expose the model reference time and location metadata."""
         bundle = self.coordinator.data
-        if not isinstance(bundle, AirQualityBundle):
+        if bundle is None:
             return None
         return {
             "dataset": self.coordinator.dataset,

@@ -39,12 +39,22 @@ DEFAULT_DATASET: Final = DATASET_NWP
 
 # Per-dataset platforms. Weather datasets go to the `weather` platform; the
 # air-quality dataset produces `sensor` entities instead (no HA WeatherEntity
-# slot makes sense for µg/m³ pollutants).
+# slot makes sense for µg/m³ pollutants). AROME and INCA additionally
+# expose an enum sensor for their symbol code, so HA can translate the label.
 DATASET_PLATFORMS: Final[dict[str, tuple[Platform, ...]]] = {
-    DATASET_NWP: (Platform.WEATHER,),
+    DATASET_NWP: (Platform.WEATHER, Platform.SENSOR),
     DATASET_ENSEMBLE: (Platform.WEATHER,),
-    DATASET_NOWCAST: (Platform.WEATHER,),
+    DATASET_NOWCAST: (Platform.WEATHER, Platform.SENSOR),
     DATASET_CHEM: (Platform.SENSOR,),
+}
+
+# Sensor entity keys per dataset (used for unique_id generation and for
+# purging stale registry entries after a reconfigure between datasets).
+DATASET_SENSOR_KEYS: Final[dict[str, tuple[str, ...]]] = {
+    DATASET_NWP: ("weather_symbol",),
+    DATASET_ENSEMBLE: (),
+    DATASET_NOWCAST: ("precipitation_type",),
+    DATASET_CHEM: ("no2", "o3", "pm10", "pm25"),
 }
 
 # Short display names used in the config-entry title and device model.

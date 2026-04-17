@@ -50,6 +50,53 @@
       },
       "pm25": {
         "name": "Feinstaub PM2,5"
+      },
+      "weather_symbol": {
+        "name": "Wettersymbol",
+        "state": {
+          "cloudless": "Wolkenlos",
+          "fair": "Heiter",
+          "partly_cloudy": "Wolkig",
+          "mostly_cloudy": "Stark bewölkt",
+          "overcast": "Bedeckt",
+          "ground_fog": "Bodennebel",
+          "high_fog": "Hochnebel",
+          "light_rain": "Leichter Regen",
+          "moderate_rain": "Mäßiger Regen",
+          "heavy_rain": "Starker Regen",
+          "light_sleet": "Leichter Schneeregen",
+          "moderate_sleet": "Mäßiger Schneeregen",
+          "heavy_sleet": "Starker Schneeregen",
+          "light_snow": "Leichter Schneefall",
+          "moderate_snow": "Mäßiger Schneefall",
+          "heavy_snow": "Starker Schneefall",
+          "light_rain_shower": "Leichter Regenschauer",
+          "moderate_rain_shower": "Mäßiger Regenschauer",
+          "heavy_rain_shower": "Starker Regenschauer",
+          "light_sleet_shower": "Leichter Schneeregenschauer",
+          "moderate_sleet_shower": "Mäßiger Schneeregenschauer",
+          "heavy_sleet_shower": "Starker Schneeregenschauer",
+          "light_snow_shower": "Leichter Schneeschauer",
+          "moderate_snow_shower": "Mäßiger Schneeschauer",
+          "heavy_snow_shower": "Starker Schneeschauer",
+          "light_thunderstorm": "Leichtes Gewitter",
+          "moderate_thunderstorm": "Mäßiges Gewitter",
+          "heavy_thunderstorm": "Starkes Gewitter",
+          "thunderstorm_sleet": "Gewitter mit Schneeregen",
+          "heavy_thunderstorm_sleet": "Starkes Gewitter mit Schneeregen",
+          "thunderstorm_snow": "Gewitter mit Schneefall",
+          "heavy_thunderstorm_snow": "Starkes Gewitter mit Schneefall"
+        }
+      },
+      "precipitation_type": {
+        "name": "Niederschlagstyp",
+        "state": {
+          "rain": "Regen",
+          "sleet": "Schneeregen",
+          "snow": "Schnee",
+          "freezing_rain": "Eisregen",
+          "none": "Kein Niederschlag"
+        }
       }
     }
   },

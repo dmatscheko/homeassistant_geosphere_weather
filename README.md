@@ -21,8 +21,11 @@ and the surrounding Alpine region, based on the open
   the selected dataset's coverage area.
 - Weather datasets create a single `weather` entity with current conditions
   plus hourly forecast, and (for AROME / C-LAEF) a daily forecast
-  aggregated client-side. The air-quality dataset creates four `sensor`
-  entities (one per pollutant).
+  aggregated client-side. AROME additionally exposes a `weather_symbol`
+  enum sensor with the fine-grained model symbol (e.g. "Heavy rain shower",
+  "Thunderstorm with snow") — fully translatable via Home Assistant's
+  i18n system. INCA exposes an analogous `precipitation_type` sensor.
+  The air-quality dataset creates four `sensor` entities (one per pollutant).
 - Each created device exposes a **link to the selected dataset's documentation
   page on the GeoSphere Data Hub** via its `configuration_url` — click the
   device card in *Settings → Devices & Services* to open it.
@@ -99,9 +102,9 @@ integration.
 - The AROME `sy` (weather symbol) codes are mapped to Home Assistant
   conditions using the [published legend](https://github.com/Geosphere-Austria/dataset-api-docs/issues/30#issuecomment-2042539848).
   For datasets without a symbol code (C-LAEF, INCA), the condition is
-  derived from cloud cover and precipitation instead. The GeoSphere symbol
-  description (e.g. "Leichter Regen") is exposed as the `symbol`
-  extra-state attribute.
+  derived from cloud cover and precipitation instead. The full 32-state
+  AROME symbol is exposed as a separate `sensor.<title>_weather_symbol`
+  entity whose state is translated by Home Assistant.
 - The API snaps the requested coordinates to the nearest model grid cell
   (≈2.5 km for AROME, ≈1 km for INCA). Do not expect metre-precision.
 - AROME is re-run every 3 hours and C-LAEF every 12 hours; the integration polls every
