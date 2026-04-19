@@ -487,35 +487,28 @@ SY_TO_SLUG: dict[int, str] = {
 WEATHER_SYMBOL_OPTIONS: tuple[str, ...] = tuple(SY_TO_SLUG.values())
 
 
-# INCA ``pt`` precipitation-type slugs. Only partially documented; codes not
+# INCA ``pt`` precipitation-type slugs. Only partially known; codes not
 # present in this map are exposed as ``None`` so the sensor reports
 # "unknown" rather than an untranslated number.
+# This mapping might contain errors since we have not yet observed all
+# the INCA pt codes in the wild, only in the data.
 #
-# The following precipitation types exist in INCA. Codes for ``sleet`` and
-# ``freezing_rain`` have not been observed yet — when they show up in live
-# data, just add them here; the slugs and translations are already declared
-# in PRECIPITATION_TYPE_OPTIONS and strings.json.
-#  * Rain              = 1  -> "rain"
-#  * Snow/rain mix     = ?  -> "sleet"
-#  * Snow              = 7  -> "snow"
-#  * Freezing rain     = ?  -> "freezing_rain"
-#  * No precipitation  = 255 -> "none"
+# Value interpretation based on empirical observations:
+# PT Value,Type,Min. Temp.,Max. Temp.,Mean Value,Typical Range (5-95 % Percentile),Number of Cells
+# 1,Rain / Regen,+0.21 °C,+21.58 °C,+11.08 °C,+4.2 bis +16.0 °C,1 202 631
+# 3,Sleet / Schneeregen,+1.90 °C,+1.97 °C,+1.94 °C,~+1.9 °C (very narrow),nur 3
+# 5,Freezing Rain / Gefrierender Regen,-3.20 °C,+4.98 °C,+0.53 °C,-0.9 bis +2.1 °C,144 383
+# 7,Snow / Schnee,-1.17 °C,+6.35 °C,+2.41 °C,+1.2 bis +3.4 °C,40 643
+# 255,No Precipitation / Kein Niederschlag,-2.92 °C,+22.09 °C,+11.99 °C,+4.9 bis +18.8 °C,2 540 043
 PT_TO_SLUG: dict[int, str] = {
     1: "rain",
+    3: "sleet",
+    5: "freezing_rain",
     7: "snow",
     255: "none",
 }
 
-# After we observed all the INCA precipitation types in the wild and mapped
-# them, we can replace this with:
-# PRECIPITATION_TYPE_OPTIONS: tuple[str, ...] = tuple(PT_TO_SLUG.values())
-PRECIPITATION_TYPE_OPTIONS: tuple[str, ...] = (
-    "rain",
-    "sleet",
-    "snow",
-    "freezing_rain",
-    "none",
-)
+PRECIPITATION_TYPE_OPTIONS: tuple[str, ...] = tuple(PT_TO_SLUG.values())
 
 
 def _condition_from_pt(
