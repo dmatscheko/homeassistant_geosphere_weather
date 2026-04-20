@@ -52,7 +52,7 @@ PARALLEL_UPDATES = 0
 class GeoSphereSensorDescription(SensorEntityDescription):
     """Describes a GeoSphere sensor backed by the coordinator bundle."""
 
-    value_fn: Callable[[GeoSphereBundle], float | str | None]
+    value_fn: Callable[[GeoSphereBundle], float | int | str | None]
 
 
 def _air_quality(field: str) -> Callable[[GeoSphereBundle], float | None]:
@@ -69,6 +69,12 @@ def _symbol_slug(bundle: GeoSphereBundle) -> str | None:
     if not isinstance(bundle, WeatherBundle):
         return None
     return bundle.current.symbol_slug
+
+
+def _precipitation_type_code(bundle: GeoSphereBundle) -> int | None:
+    if not isinstance(bundle, WeatherBundle):
+        return None
+    return bundle.current.precipitation_type_code
 
 
 AIR_QUALITY_DESCRIPTIONS: tuple[GeoSphereSensorDescription, ...] = (
@@ -126,10 +132,23 @@ PRECIPITATION_TYPE_DESCRIPTION = GeoSphereSensorDescription(
     value_fn=_symbol_slug,
 )
 
+# Disabled-by-default diagnostic sensor exposing the raw INCA ``pt`` code,
+# useful for identifying unmapped values that surface as ``unknown`` on the
+# translated enum sensor above.
+PRECIPITATION_TYPE_CODE_DESCRIPTION = GeoSphereSensorDescription(
+    key="precipitation_type_code",
+    translation_key="precipitation_type_code",
+    entity_registry_enabled_default=False,
+    value_fn=_precipitation_type_code,
+)
+
 
 _DATASET_DESCRIPTIONS: dict[str, tuple[GeoSphereSensorDescription, ...]] = {
     DATASET_NWP: (WEATHER_SYMBOL_DESCRIPTION,),
-    DATASET_NOWCAST: (PRECIPITATION_TYPE_DESCRIPTION,),
+    DATASET_NOWCAST: (
+        PRECIPITATION_TYPE_DESCRIPTION,
+        PRECIPITATION_TYPE_CODE_DESCRIPTION,
+    ),
     DATASET_CHEM: AIR_QUALITY_DESCRIPTIONS,
 }
 
@@ -181,7 +200,7 @@ class GeoSphereSensor(
         )
 
     @property
-    def native_value(self) -> float | str | None:
+    def native_value(self) -> float | int | str | None:
         """Return the current value from the coordinator bundle."""
         bundle = self.coordinator.data
         if bundle is None:

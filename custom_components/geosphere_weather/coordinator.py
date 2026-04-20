@@ -57,6 +57,7 @@ class CurrentConditions:
     wind_bearing: float | None = None  # degrees
     condition: str | None = None
     symbol_slug: str | None = None
+    precipitation_type_code: int | None = None
 
 
 @dataclass(slots=True)
@@ -742,6 +743,9 @@ def _parse_nowcast(payload: dict[str, Any]) -> WeatherBundle:
         wind_bearing=first.wind_bearing,
         condition=first.condition,
         symbol_slug=first.symbol_slug,
+        precipitation_type_code=(
+            int(pt[0]) if pt and pt[0] is not None else None
+        ),
     )
 
     return WeatherBundle(

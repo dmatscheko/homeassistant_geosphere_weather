@@ -23,7 +23,9 @@ and the surrounding Alpine region, based on the open
   plus hourly forecast, and (for AROME / C-LAEF) a daily forecast
   aggregated client-side. AROME additionally exposes a `weather_symbol`
   enum sensor with the fine-grained model symbol (e.g. "Heavy rain shower",
-  "Thunderstorm with snow"). INCA exposes an analogous `precipitation_type` sensor.
+  "Thunderstorm with snow"). INCA exposes an analogous `precipitation_type`
+  sensor, alongside a disabled-by-default `precipitation_type_code` sensor
+  with the raw numeric INCA `pt` value (handy for identifying unmapped codes).
   The air-quality dataset creates four `sensor` entities (one per pollutant).
 - Each created device exposes a **link to the selected dataset's documentation
   page on the GeoSphere Data Hub** via its `configuration_url` — click the

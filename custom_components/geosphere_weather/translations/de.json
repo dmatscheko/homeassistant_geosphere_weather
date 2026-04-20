@@ -105,6 +105,9 @@
           "freezing_rain": "Eisregen",
           "none": "Kein Niederschlag"
         }
+      },
+      "precipitation_type_code": {
+        "name": "Niederschlagstyp-Code"
       }
     }
   },
