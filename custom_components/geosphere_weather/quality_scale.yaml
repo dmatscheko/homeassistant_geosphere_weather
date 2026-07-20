@@ -69,12 +69,12 @@ rules:
     status: exempt
     comment: A config entry maps to exactly one dataset/zone combination.
   entity-category:
-    status: exempt
-    comment: All entities represent primary measurements.
+    status: done
+    comment: >-
+      Primary measurements keep the default category; the raw
+      precipitation_type_code sensor is marked as diagnostic.
   entity-device-class: done
-  entity-disabled-by-default:
-    status: exempt
-    comment: No noisy or optional entities.
+  entity-disabled-by-default: done
   entity-translations: done
   exception-translations: done
   icon-translations:

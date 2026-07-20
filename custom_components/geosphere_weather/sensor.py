@@ -19,7 +19,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import CONCENTRATION_MICROGRAMS_PER_CUBIC_METER
+from homeassistant.const import CONCENTRATION_MICROGRAMS_PER_CUBIC_METER, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -138,6 +138,7 @@ PRECIPITATION_TYPE_DESCRIPTION = GeoSphereSensorDescription(
 PRECIPITATION_TYPE_CODE_DESCRIPTION = GeoSphereSensorDescription(
     key="precipitation_type_code",
     translation_key="precipitation_type_code",
+    entity_category=EntityCategory.DIAGNOSTIC,
     entity_registry_enabled_default=False,
     value_fn=_precipitation_type_code,
 )

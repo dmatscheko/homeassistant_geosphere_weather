@@ -15,8 +15,11 @@ from custom_components.geosphere_weather.const import (
     CONF_DATASET,
     DATASET_CHEM,
     DATASET_ENSEMBLE,
+    DATASET_NOWCAST,
     DATASET_NWP,
+    DATASET_SENSOR_KEYS,
     DOMAIN,
+    SUPPORTED_DATASETS,
 )
 
 from .fixtures import chem_payload, ensemble_payload, nwp_payload
@@ -279,6 +282,63 @@ async def test_purge_stale_entities_removes_foreign_unique_ids(
     assert f"{entry.entry_id}_weather_symbol" not in remaining_unique_ids
     # The WRF-Chem sensor is expected → kept.
     assert f"{entry.entry_id}_no2" in remaining_unique_ids
+
+
+def test_dataset_sensor_keys_match_descriptions() -> None:
+    """DATASET_SENSOR_KEYS must list exactly the sensors each dataset creates.
+
+    ``_purge_stale_entities`` treats DATASET_SENSOR_KEYS as the authoritative
+    set of expected unique_ids on every setup; a sensor description whose key
+    is missing here would have its registry entry (and any user customisation,
+    e.g. enabling a disabled-by-default entity) wiped on each reload.
+    """
+    from custom_components.geosphere_weather.sensor import _DATASET_DESCRIPTIONS
+
+    for dataset in SUPPORTED_DATASETS:
+        expected = tuple(
+            description.key for description in _DATASET_DESCRIPTIONS.get(dataset, ())
+        )
+        assert DATASET_SENSOR_KEYS[dataset] == expected, dataset
+
+
+async def test_purge_keeps_all_nowcast_sensor_entities(hass: HomeAssistant) -> None:
+    """Purging on re-setup must not drop the nowcast sensors, incl. the code sensor.
+
+    Regression test: ``precipitation_type_code`` was missing from
+    DATASET_SENSOR_KEYS, so every restart removed its registry entry and the
+    sensor could never stay enabled.
+    """
+    from custom_components.geosphere_weather import _purge_stale_entities
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_ZONE: ZONE_ID, CONF_DATASET: DATASET_NOWCAST},
+        unique_id=f"{ZONE_ID}_{DATASET_NOWCAST}",
+    )
+    entry.add_to_hass(hass)
+
+    reg = er.async_get(hass)
+    reg.async_get_or_create("weather", DOMAIN, entry.entry_id, config_entry=entry)
+    reg.async_get_or_create(
+        "sensor", DOMAIN, f"{entry.entry_id}_precipitation_type", config_entry=entry
+    )
+    reg.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_precipitation_type_code",
+        config_entry=entry,
+    )
+
+    _purge_stale_entities(hass, entry, DATASET_NOWCAST)
+
+    remaining_unique_ids = {
+        e.unique_id for e in er.async_entries_for_config_entry(reg, entry.entry_id)
+    }
+    assert remaining_unique_ids == {
+        entry.entry_id,
+        f"{entry.entry_id}_precipitation_type",
+        f"{entry.entry_id}_precipitation_type_code",
+    }
 
 
 async def test_setup_without_zone_is_not_ready(hass: HomeAssistant) -> None:

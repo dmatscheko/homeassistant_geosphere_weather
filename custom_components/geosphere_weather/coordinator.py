@@ -194,10 +194,17 @@ class GeoSphereDataUpdateCoordinator(DataUpdateCoordinator[GeoSphereBundle]):
                     "reason": err.message or "",
                 },
             ) from err
-        except ClientError as err:
+        except (ClientError, TimeoutError) as err:
             raise UpdateFailed(
                 translation_domain=DOMAIN,
                 translation_key="api_communication_error",
+                translation_placeholders={"error": str(err)},
+            ) from err
+        except ValueError as err:
+            # A 200 response whose body is not valid JSON.
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="api_unexpected_response",
                 translation_placeholders={"error": str(err)},
             ) from err
         parser = _PARSERS[self._dataset]

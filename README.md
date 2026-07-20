@@ -137,22 +137,31 @@ Home Assistant language.
 
 ### Heavy-rain warning from the hourly forecast
 
+Forecasts are not exposed as a state attribute (Home Assistant removed the
+`forecast` attribute in 2024.3); fetch them with the `weather.get_forecasts`
+service and a `response_variable` instead:
+
 ```yaml
 alias: Warn if >5 mm rain in the next hour
 trigger:
   - platform: time_pattern
     minutes: "/15"
-condition:
+action:
+  - service: weather.get_forecasts
+    target:
+      entity_id: weather.home_arome
+    data:
+      type: hourly
+    response_variable: forecasts
   - condition: template
     value_template: >-
-      {% set fc = state_attr('weather.home_arome', 'forecast') %}
-      {{ fc and fc[0].precipitation|float(0) >= 5 }}
-action:
+      {% set fc = forecasts['weather.home_arome'].forecast %}
+      {{ fc and fc[0].precipitation | float(0) >= 5 }}
   - service: notify.mobile_app
     data:
       title: Heavy rain incoming
       message: >-
-        {{ state_attr('weather.home_arome', 'forecast')[0].precipitation }} mm
+        {{ forecasts['weather.home_arome'].forecast[0].precipitation }} mm
         expected in the next hour.
 ```
 
@@ -173,14 +182,27 @@ action:
 
 ### Template sensor: daily max temperature
 
+A trigger-based template sensor that refreshes the daily forecast every
+30 minutes via `weather.get_forecasts`:
+
 ```yaml
 template:
-  - sensor:
+  - trigger:
+      - platform: time_pattern
+        minutes: "/30"
+    action:
+      - service: weather.get_forecasts
+        target:
+          entity_id: weather.home_arome
+        data:
+          type: daily
+        response_variable: daily
+    sensor:
       - name: Today max temperature
         unit_of_measurement: "°C"
         state: >-
-          {% set d = state_attr('weather.home_arome', 'forecast') %}
-          {{ d[0].temperature if d else none }}
+          {% set fc = daily['weather.home_arome'].forecast %}
+          {{ fc[0].temperature if fc else none }}
 ```
 
 ## Troubleshooting

@@ -358,6 +358,48 @@ async def test_coordinator_client_error_raises_update_failed(
     assert exc.value.translation_key == "api_communication_error"
 
 
+async def test_coordinator_timeout_raises_update_failed(
+    hass: HomeAssistant,
+) -> None:
+    """A request timeout surfaces as UpdateFailed with the communication key.
+
+    aiohttp's total timeout raises ``TimeoutError``, which is *not* a
+    ``ClientError`` — it must be mapped explicitly.
+    """
+    coordinator = _build_coordinator(hass)
+
+    def _get(*_args, **_kwargs):
+        raise TimeoutError
+
+    with patch.object(coordinator, "_session") as session:
+        session.get = _get
+        with pytest.raises(UpdateFailed) as exc:
+            await coordinator._async_update_data()
+    assert exc.value.translation_key == "api_communication_error"
+
+
+async def test_coordinator_invalid_json_raises_update_failed(
+    hass: HomeAssistant,
+) -> None:
+    """A 200 response with a malformed JSON body surfaces as unexpected-response."""
+    import json
+
+    coordinator = _build_coordinator(hass)
+
+    class _BadJsonResponse(_PayloadResponse):
+        async def json(self) -> dict:
+            raise json.JSONDecodeError("Expecting value", "<html>", 0)
+
+    def _get(*_args, **_kwargs) -> _PayloadResponse:
+        return _BadJsonResponse({})
+
+    with patch.object(coordinator, "_session") as session:
+        session.get = _get
+        with pytest.raises(UpdateFailed) as exc:
+            await coordinator._async_update_data()
+    assert exc.value.translation_key == "api_unexpected_response"
+
+
 async def test_coordinator_malformed_payload_raises_update_failed(
     hass: HomeAssistant,
 ) -> None:

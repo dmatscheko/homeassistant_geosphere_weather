@@ -53,7 +53,7 @@ DATASET_PLATFORMS: Final[dict[str, tuple[Platform, ...]]] = {
 DATASET_SENSOR_KEYS: Final[dict[str, tuple[str, ...]]] = {
     DATASET_NWP: ("weather_symbol",),
     DATASET_ENSEMBLE: (),
-    DATASET_NOWCAST: ("precipitation_type",),
+    DATASET_NOWCAST: ("precipitation_type", "precipitation_type_code"),
     DATASET_CHEM: ("no2", "o3", "pm10", "pm25"),
 }
 
